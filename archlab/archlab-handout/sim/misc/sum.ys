@@ -16,19 +16,19 @@ ele3:
 
 main:
     irmovq ele1, %rdi  #Move list pointer to %rdi 
-    call sum_list
+    call sum
     ret
 
 sum:
     xorq %rax, %rax     #val = 0
-    andq %rdi, $rdi     #and ls t = testexp
+    andq %rdi, %rdi     #and ls t = testexp
     je   done           #ls == 0 jump to done 
 loop:
     irmovq $8, %r8      #Constant 8
     mrmovq (%rdi), %r10 #Move number to %r10
     addq %r10, %rax     #val += ls->val
     addq %r8, %rdi      #ls->next
-    andq %rdi, $rdi     #and ls t = testexp
+    andq %rdi, %rdi     #and ls t = testexp
     jne  loop
 done:
     ret

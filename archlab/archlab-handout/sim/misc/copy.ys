@@ -1,0 +1,47 @@
+.pos 0
+    irmovq stack, %rsp  #Set up stack pointer
+    call main           #Execute main program  
+    halt                #Terminate program
+
+.align 8
+# Source block
+src:
+        .quad 0x00a
+        .quad 0x0b0
+        .quad 0xc00
+# Destination block
+dest:
+        .quad 0x111
+        .quad 0x222
+        .quad 0x333
+
+main:
+    irmovq src, %rdi   #Move src pointer to %rdi 
+    irmovq dest, %rsi  #Move dest pointer to %rsi 
+    irmovq $3, %rdx    #Move Constant 3 to %rdx
+    call copy
+    ret
+
+# src = %rdi dest = %rsi len = %rdx
+copy:
+    irmovq $0, %rax      #rax = 0
+    andq   %rdx, %rdx    #judge len
+    je done
+    irmovq $8, %r8       #Constant 8
+    irmovq $1, %r9       #Constant 1
+
+loop:
+    mrmovq (%rdi), %r10   #val = *src
+    addq %r8, %rdi #src++ 
+    rmmovq %r10, (%rsi)   #*dest = val
+    addq %r8, %rsi        #dest++ 
+    xorq %r10, %rax       #result ^= val
+    subq %r9, %rdx        #len--
+    andq %rdx, %rdx       #judge len
+    jne loop
+done:
+    ret
+
+#Stack starts here and grows to lower addresses
+    .pos 0x200
+stack:

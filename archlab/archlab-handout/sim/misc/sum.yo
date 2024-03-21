@@ -22,16 +22,15 @@
 0x05c:                      | sum:
 0x05c: 6300                 |     xorq %rax, %rax     #val = 0
 0x05e: 6277                 |     andq %rdi, %rdi     #and ls t = testexp
-0x060: 738c00000000000000   |     je   done           #ls == 0 jump to done 
+0x060: 738a00000000000000   |     je   done           #ls == 0 jump to done 
 0x069:                      | loop:
-0x069: 30f80800000000000000 |     irmovq $8, %r8      #Constant 8
-0x073: 50a70000000000000000 |     mrmovq (%rdi), %r10 #Move number to %r10
-0x07d: 60a0                 |     addq %r10, %rax     #val += ls->val
-0x07f: 6087                 |     addq %r8, %rdi      #ls->next
-0x081: 6277                 |     andq %rdi, %rdi     #and ls t = testexp
-0x083: 746900000000000000   |     jne  loop
-0x08c:                      | done:
-0x08c: 90                   |     ret
+0x069: 50870000000000000000 |     mrmovq (%rdi), %r8  #Move number to %r8
+0x073: 6080                 |     addq %r8, %rax     #val += ls->val
+0x075: 50770800000000000000 |     mrmovq 8(%rdi), %rdi      #ls->next
+0x07f: 6277                 |     andq %rdi, %rdi     #and ls t = testexp
+0x081: 746900000000000000   |     jne  loop
+0x08a:                      | done:
+0x08a: 90                   |     ret
                             | 
                             | #Stack starts here and grows to lower addresses
 0x200:                      |     .pos 0x200

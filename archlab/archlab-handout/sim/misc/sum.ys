@@ -24,10 +24,9 @@ sum:
     andq %rdi, %rdi     #and ls t = testexp
     je   done           #ls == 0 jump to done 
 loop:
-    irmovq $8, %r8      #Constant 8
-    mrmovq (%rdi), %r10 #Move number to %r10
-    addq %r10, %rax     #val += ls->val
-    addq %r8, %rdi      #ls->next
+    mrmovq (%rdi), %r8  #Move number to %r8
+    addq %r8, %rax     #val += ls->val
+    mrmovq 8(%rdi), %rdi      #ls->next
     andq %rdi, %rdi     #and ls t = testexp
     jne  loop
 done:

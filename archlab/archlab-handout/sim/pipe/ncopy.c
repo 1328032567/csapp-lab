@@ -24,7 +24,32 @@ word_t ncopy(word_t *src, word_t *dst, word_t len)
     return count;
 }
 /* $end ncopy */
+int r8, r9, r10;
+word_t ncopy_f(word_t *src, word_t *dst, word_t len)
+{
+    word_t count = 0;
 
+    while (len > 1) {
+	r8 = *src;
+    src++;
+	if (r8 > 0)
+	    count++;
+	*dst = r8;
+    dst++;
+Circle:
+    r9 = *src;
+    src++;
+	if (r9 > 0)
+	    count++;
+    *dst = r9;
+    dst++;
+	len = len - 2;
+    }
+    if(len > 0)
+     jmp Circle;
+    return count;
+}
+/* $end ncopy */
 int main()
 {
     word_t i, count;

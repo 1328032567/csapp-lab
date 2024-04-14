@@ -17,6 +17,7 @@ ncopy:
 ##################################################################
 # You can modify this portion
 	# Loop header
+	xorq %rax,%rax		# count = 0;
 	andq %rdx, %rdx 	#len > 0 ?
 	jle	Done
 	jmp test

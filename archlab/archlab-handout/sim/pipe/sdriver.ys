@@ -17,6 +17,7 @@ StartFun:
 # Return the number of positive words (>0) contained in src.
 #
 # Include your name and ID here.
+# Name: Xuan ID:2022
 #
 # Describe how and why you modified the baseline code.
 #
@@ -29,23 +30,65 @@ ncopy:
 ##################################################################
 # You can modify this portion
 	# Loop header
-	xorq %rax,%rax		# count = 0;
-	andq %rdx,%rdx		# len <= 0?
-	jle Done		# if so, goto Done:
-
-Loop:	mrmovq (%rdi), %r10	# read val from src...
-	rmmovq %r10, (%rsi)	# ...and store it to dst
-	andq %r10, %r10		# val <= 0?
-	jle Npos		# if so, goto Npos:
-	irmovq $1, %r10
-	addq %r10, %rax		# count++
-Npos:	irmovq $1, %r10
-	subq %r10, %rdx		# len--
-	irmovq $8, %r10
-	addq %r10, %rdi		# src++
-	addq %r10, %rsi		# dst++
-	andq %rdx,%rdx		# len > 0?
-	jg Loop			# if so, goto Loop:
+	andq %rdx, %rdx 	#len > 0 ?
+	jle	Done
+	jmp test
+Loop0:
+	mrmovq (%rdi), %r8
+	mrmovq 8(%rdi), %r9
+	andq %r8, %r8
+	jle Loop1
+	iaddq $1, %rax
+Loop1:
+	rmmovq %r8, (%rsi)
+	rmmovq %r9, 8(%rsi)
+	andq %r9, %r9
+	jle Loop2
+	iaddq $1, %rax	
+Loop2:
+	mrmovq 16(%rdi), %r8
+	mrmovq 24(%rdi), %r9
+	andq %r8, %r8
+	jle Loop3
+	iaddq $1, %rax
+Loop3:
+	rmmovq %r8, 16(%rsi)
+	rmmovq %r9, 24(%rsi)
+	andq %r9, %r9
+	jle Loop4
+	iaddq $1, %rax	
+Loop4:
+	mrmovq 32(%rdi), %r8
+	mrmovq 40(%rdi), %r9
+	andq %r8, %r8
+	jle Loop5
+	iaddq $1, %rax
+Loop5:
+	rmmovq %r8, 32(%rsi)
+	rmmovq %r9, 40(%rsi)
+	andq %r9, %r9
+	jle Loop6
+	iaddq $1, %rax	
+Loop6:
+	iaddq $48, %rdi
+	iaddq $48, %rsi
+test:
+	iaddq $-6, %rdx
+	jge Loop0
+	
+	iaddq $6, %rdx
+	je Done
+loop:
+	mrmovq (%rdi), %r10
+	iaddq $8, %rdi
+	andq %r10, %r10
+	jle Add
+	iaddq $1, %rax
+Add:
+	rmmovq %r10, (%rsi)
+	iaddq $8, %rsi
+	iaddq $-1, %rdx
+	jg loop
 ##################################################################
 # Do not modify the following section of code
 # Function epilogue.
@@ -62,10 +105,10 @@ EndFun:
 ###############################
 	.align 8
 src:
-	.quad -1
-	.quad -2
-	.quad 3
-	.quad 4
+	.quad 1
+	.quad 2
+	.quad -3
+	.quad -4
 	.quad 0xbcdefa # This shouldn't get moved
 
 	.align 16

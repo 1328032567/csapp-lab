@@ -1,0 +1,36 @@
+.pos 0
+    irmovq stack, %rsp  #Set up stack pointer
+    call main           #Execute main program  
+    halt                #Terminate program
+
+    .align 8
+ele1:
+    .quad 0x00a
+    .quad ele2
+ele2:
+    .quad 0x0b0
+    .quad ele3
+ele3:
+    .quad 0xc00
+    .quad 0
+
+main:
+    irmovq ele1, %rdi  #Move list pointer to %rdi 
+    call rsum
+    ret
+
+rsum:
+    pushq %r8            #push %r8 into stack
+    andq %rdi, %rdi      #? !ls
+    je   done            #Return function
+    xorq %rax, %rax
+    mrmovq (%rdi), %r8   #%r8 = ls->val
+    mrmovq 8(%rdi), %rdi #initialize param
+    call rsum            #reverse call
+    addq %r8, %rax        
+done:
+    popq %r8             #pop %r8 from memory to register
+    ret
+#Stack starts here and grows to lower addresses
+    .pos 0x200
+stack:

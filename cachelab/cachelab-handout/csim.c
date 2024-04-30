@@ -1,6 +1,7 @@
 #include "cachelab.h"
 #include <stdio.h>
 #include <unistd.h>
+#include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
 #define SIZE 50
@@ -19,11 +20,17 @@ typedef struct{
 }Cache;
 
 Cache cache = {0, 0, 0, NULL};
+int hit = 0;
+int miss = 0;
+int evic = 0;
 int verbose = 0;
 
 void print_help(void);
 void Init_Cache(int s, int E, int b);
 void Get_Oper(int s, int E, int b, char *fname);
+void Update_Cache(int op_tag, int op_s);
+int Get_Index(int op_tag, int op_s);
+int Find_Empty(int op_s);
 int main(int argc, char* argv[])
 {
     char opt;
@@ -105,9 +112,68 @@ void Get_Oper(int s, int E, int b, char *fname)
         fprintf(stderr, "Usage:Can't open file %s", fname);
         exit(-2);
     }
-    
-
-
+    char operate;
+    unsigned address;
+    int size;
+    while((fscanf(fp, " %c %x,%d", &operate, &address, &size)) != EOF)
+    {
+        int op_tag = address >> (s + b);
+        //get op_s by mask code low s bits are 1 other bits are 0
+        int op_s = (address >> b) & ((1 << s) - 1);
+        //printf("tag:%d group:%d \n", op_tag, op_s);
+        switch(operate)
+        {
+            case 'M':
+                Update_Cache(op_tag, op_s);
+            case 'L':
+            case 'S':
+                Update_Cache(op_tag, op_s);
+                break;
+        }
+    }
     fclose(fp);
     return ;
+}
+void Update_Cache(int op_tag, int op_s)
+{
+    int index = Get_Index(op_tag, op_s);
+    if(index == -1)
+    {
+        miss++;
+        if(verbose == 1)
+        {
+            fprintf(stdout, "%s ", "miss");
+        }
+        int empty = Find_Empty(op_s);
+        if(empty == -1)
+        {
+
+        }
+        else 
+        {
+        
+        }
+    }
+    else 
+    {
+        hit++;
+    }
+}
+int Get_Index(int op_tag, int op_s)
+{
+    for(int i = 0;i < cache.E;i++)
+    {
+        if((cache.line[op_s][i].valid == 1) && (cache.line[op_s][i].tag == op_tag))
+            return 1;
+    }
+    return -1;
+}
+int Find_Empty(int op_s)
+{
+    for(int i = 0; i < cache.E;i++)
+    {
+        if(cache.line[op_s][i].valid == 0)
+            return i;
+    }
+    return -1;
 }

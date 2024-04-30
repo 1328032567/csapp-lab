@@ -31,6 +31,10 @@ void Get_Oper(int s, int E, int b, char *fname);
 void Update_Cache(int op_tag, int op_s);
 int Get_Index(int op_tag, int op_s);
 int Find_Empty(int op_s);
+void Update_Line(int line, int op_s, int op_tag);
+void Update_Time(int line, int op_s, int op_tag);
+int LRU(int op_s);
+void Free_Cache(Cache* cache);
 int main(int argc, char* argv[])
 {
     char opt;
@@ -66,10 +70,8 @@ int main(int argc, char* argv[])
     }
     Init_Cache(s, E, b);
     Get_Oper(s, E, b, fname);
-
-
-
-    printSummary(0, 0, 0);
+    Free_Cache( &cache);
+    printSummary(hit, miss, evic);
     return 0;
 }
 
@@ -113,14 +115,15 @@ void Get_Oper(int s, int E, int b, char *fname)
         exit(-2);
     }
     char operate;
-    unsigned address;
+    unsigned long address;
     int size;
-    while((fscanf(fp, " %c %x,%d", &operate, &address, &size)) != EOF)
+    while((fscanf(fp, " %c %lx,%d", &operate, &address, &size)) != EOF)
     {
         int op_tag = address >> (s + b);
         //get op_s by mask code low s bits are 1 other bits are 0
         int op_s = (address >> b) & ((1 << s) - 1);
-        //printf("tag:%d group:%d \n", op_tag, op_s);
+        if(verbose && operate != 'I')
+            fprintf(stdout," %c %lx,%d ", operate, address, size);
         switch(operate)
         {
             case 'M':
@@ -130,8 +133,14 @@ void Get_Oper(int s, int E, int b, char *fname)
                 Update_Cache(op_tag, op_s);
                 break;
         }
+        if(verbose && operate != 'I')
+            fprintf(stdout,"\n");
     }
-    fclose(fp);
+    if((fclose(fp)) != 0)
+    {
+        fprintf(stderr, "Usage:Error to close file %s.\n", fname);
+        exit(-3);
+    }
     return ;
 }
 void Update_Cache(int op_tag, int op_s)
@@ -142,21 +151,25 @@ void Update_Cache(int op_tag, int op_s)
         miss++;
         if(verbose == 1)
         {
-            fprintf(stdout, "%s ", "miss");
+            fprintf(stdout, " %s", "miss");
         }
-        int empty = Find_Empty(op_s);
-        if(empty == -1)
+        int empty_line = Find_Empty(op_s);
+        if(empty_line == -1)//eviction line
         {
-
+            evic++;
+            if(verbose)
+                fprintf(stdout, " %s", "eviction");
+            empty_line = LRU(op_s);
         }
-        else 
-        {
-        
-        }
+        Update_Line(empty_line, op_s, op_tag);
+        Update_Time(empty_line, op_s, op_tag);
     }
     else 
     {
         hit++;
+        if(verbose)
+            fprintf(stdout, " %s", "hit");
+        Update_Time(index, op_s, op_tag);
     }
 }
 int Get_Index(int op_tag, int op_s)
@@ -164,7 +177,7 @@ int Get_Index(int op_tag, int op_s)
     for(int i = 0;i < cache.E;i++)
     {
         if((cache.line[op_s][i].valid == 1) && (cache.line[op_s][i].tag == op_tag))
-            return 1;
+        	return i; 
     }
     return -1;
 }
@@ -176,4 +189,44 @@ int Find_Empty(int op_s)
             return i;
     }
     return -1;
+}
+int LRU(int op_s)
+{
+    int max = -1;
+    int line = -1;
+    for(int i = 0;i < cache.E; i++)
+    {
+        int stamp = cache.line[op_s][i].stamp;
+        if(stamp > max)
+        {
+            max = stamp;
+            line = i;
+        }
+    }
+    return line;
+}
+void Update_Line(int line, int op_s, int op_tag)
+{
+    cache.line[op_s][line].valid = 1;
+    cache.line[op_s][line].tag = op_tag;
+}
+void Update_Time(int line, int op_s, int op_tag)
+{
+    for(int i = 0;i < cache.E; i++)
+    {
+        if(cache.line[op_s][i].valid == 1)
+        {
+            cache.line[op_s][i].stamp++;
+        }
+    }
+    cache.line[op_s][line].stamp = 1;
+}
+void Free_Cache(Cache* cache)
+{
+    for(int i = 0;i < cache->S;i++)
+    {
+        free(cache->line[i]);
+    }
+    free(cache->line);
+    cache->line = NULL;
 }

@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
                 strcpy(fname, optarg);
                 break;
             default:
-                fprintf(stderr, "Wrong arguments!\n");
+                fprintf(stderr, "Usage:Can't receive wrong argument %c!\n", opt);
                 print_help();
                 exit(-1);
         }

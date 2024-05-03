@@ -20,8 +20,23 @@ int is_transpose(int M, int N, int A[N][M], int B[M][N]);
  *     be graded. 
  */
 char transpose_submit_desc[] = "Transpose submission";
+/* cache 1KB block 32B */
+/* s = 5, E = 1, b = 5 */
+/* only declare 12 variables of int type */
 void transpose_submit(int M, int N, int A[N][M], int B[M][N])
 {
+    if(N == 32 && M == 32)
+    {
+
+    }
+    else if(N == 64 && M == 64)
+    {
+
+    }
+    else if(N == 61 && M == 67)
+    {
+        
+    }
 }
 
 /* 

@@ -47,7 +47,49 @@ void naive_rotate(int dim, pixel *src, pixel *dst)
 char rotate_descr[] = "rotate: Current working version";
 void rotate(int dim, pixel *src, pixel *dst) 
 {
-    naive_rotate(dim, src, dst);
+    //loop unrolling for 16 column
+    pixel tmp[16];
+    for(int i = 0; i < dim; i++)
+    {
+        for(int j = 0;j < dim; j += 16)
+        {
+            //store src into tmp array
+            tmp[0] = src[RIDX(i, j, dim)];
+            tmp[1] = src[RIDX(i, j+1, dim)];
+            tmp[2] = src[RIDX(i, j+2, dim)];
+            tmp[3] = src[RIDX(i, j+3, dim)];
+            tmp[4] = src[RIDX(i, j+4, dim)];
+            tmp[5] = src[RIDX(i, j+5, dim)];
+            tmp[6] = src[RIDX(i, j+6, dim)];
+            tmp[7] = src[RIDX(i, j+7, dim)];
+            tmp[8] = src[RIDX(i, j+8, dim)];
+            tmp[9] = src[RIDX(i, j+9, dim)];
+            tmp[10] = src[RIDX(i, j+10, dim)];
+            tmp[11] = src[RIDX(i, j+11, dim)];
+            tmp[12] = src[RIDX(i, j+12, dim)];
+            tmp[13] = src[RIDX(i, j+13, dim)];
+            tmp[14] = src[RIDX(i, j+14, dim)];
+            tmp[15] = src[RIDX(i, j+15, dim)];
+
+            //variable dst array from tmp
+            dst[RIDX(dim-1-j, i, dim)] = tmp[0]; 
+            dst[RIDX(dim-2-j, i, dim)] = tmp[1]; 
+            dst[RIDX(dim-3-j, i, dim)] = tmp[2]; 
+            dst[RIDX(dim-4-j, i, dim)] = tmp[3]; 
+            dst[RIDX(dim-5-j, i, dim)] = tmp[4]; 
+            dst[RIDX(dim-6-j, i, dim)] = tmp[5];
+            dst[RIDX(dim-7-j, i, dim)] = tmp[6]; 
+            dst[RIDX(dim-8-j, i, dim)] = tmp[7]; 
+            dst[RIDX(dim-9-j, i, dim)] = tmp[8]; 
+            dst[RIDX(dim-10-j, i, dim)] = tmp[9]; 
+            dst[RIDX(dim-11-j, i, dim)] = tmp[10];
+            dst[RIDX(dim-12-j, i, dim)] = tmp[11];
+            dst[RIDX(dim-13-j, i, dim)] = tmp[12];
+            dst[RIDX(dim-14-j, i, dim)] = tmp[13];
+            dst[RIDX(dim-15-j, i, dim)] = tmp[14];
+            dst[RIDX(dim-16-j, i, dim)] = tmp[15];
+        }
+    }
 }
 
 /*********************************************************************

@@ -44,7 +44,7 @@ void naive_rotate(int dim, pixel *src, pixel *dst)
  * rotate - Your current working version of rotate
  * IMPORTANT: This is the version you will be graded on
  */
-char rotate_descr[] = "rotate: Current working version";
+char rotate_descr[] = "rotate: Current working version----loop unrolling for 16 column";
 void rotate(int dim, pixel *src, pixel *dst) 
 {
     //loop unrolling for 16 column
@@ -92,7 +92,7 @@ void rotate(int dim, pixel *src, pixel *dst)
     }
 }
 
-char rotate_descr1[] = "rotate: Current working version1";
+char rotate_descr1[] = "rotate: Current working version1----loop unrolling for 32 column";
 void rotate1(int dim, pixel *src, pixel *dst) 
 {
     //loop unrolling for 32 column
@@ -172,6 +172,130 @@ void rotate1(int dim, pixel *src, pixel *dst)
     }
 }
 
+char rotate_descr2[] = "rotate: Current working version2----loop unrolling for column and loop hoisting for macro";
+void rotate2(int dim, pixel *src, pixel *dst) 
+{
+    //loop unrolling for 16 column
+    pixel tmp[16];
+    //loop hoisting
+    int r;
+    for(int i = 0; i < dim; i++)
+    {
+        for(int j = 0;j < dim; j += 16)
+        {
+            //multiply macro
+            r = RIDX(i, j, dim);//r = i * dim + j
+            //store src into tmp array
+            tmp[0] = src[r];
+            tmp[1] = src[r+1];
+            tmp[2] = src[r+2];
+            tmp[3] = src[r+3];
+            tmp[4] = src[r+4];
+            tmp[5] = src[r+5];
+            tmp[6] = src[r+6];
+            tmp[7] = src[r+7];
+            tmp[8] = src[r+8];
+            tmp[9] = src[r+9];
+            tmp[10] = src[r+10];
+            tmp[11] = src[r+11];
+            tmp[12] = src[r+12];
+            tmp[13] = src[r+13];
+            tmp[14] = src[r+14];
+            tmp[15] = src[r+15];
+
+            //multiply macro
+            r = RIDX(dim-1-j, i, dim);//r = (dim-1-j) * dim + i
+            //variable dst array from tmp
+            dst[r] = tmp[0]; 
+            dst[r-1*dim] = tmp[1]; 
+            dst[r-2*dim] = tmp[2]; 
+            dst[r-3*dim] = tmp[3]; 
+            dst[r-4*dim] = tmp[4]; 
+            dst[r-5*dim] = tmp[5];
+            dst[r-6*dim] = tmp[6]; 
+            dst[r-7*dim] = tmp[7]; 
+            dst[r-8*dim] = tmp[8]; 
+            dst[r-9*dim] = tmp[9]; 
+            dst[r-10*dim] = tmp[10];
+            dst[r-11*dim] = tmp[11];
+            dst[r-12*dim] = tmp[12];
+            dst[r-13*dim] = tmp[13];
+            dst[r-14*dim] = tmp[14];
+            dst[r-15*dim] = tmp[15];
+        }
+    }
+}
+char rotate_descr3[] = "rotate: Current working version----loop unrolling for 16 column and replace address from pointer";
+void rotate3(int dim, pixel *src, pixel *dst) 
+{
+    //loop unrolling for 16 column
+    pixel tmp[16];
+    //two address to store the beginning address of two pixel array
+    //pixel *src_addr = src; to store source address is useless
+    pixel *dst_addr = dst;
+    for(int i = 0; i < dim; i++)
+    {
+        for(int j = 0;j < dim; j += 16)
+        {
+            //store src into tmp array
+
+            //use pointer to replace address calculation
+            tmp[0] = *src++;
+            tmp[1] = *src++;
+            tmp[2] = *src++;
+            tmp[3] = *src++;
+            tmp[4] = *src++;
+            tmp[5] = *src++;
+            tmp[6] = *src++;
+            tmp[7] = *src++;
+            tmp[8] = *src++;
+            tmp[9] = *src++;
+            tmp[10] = *src++;
+            tmp[11] = *src++;
+            tmp[12] = *src++;
+            tmp[13] = *src++;
+            tmp[14] = *src++;
+            tmp[15] = *src++;
+
+            //variable dst array from tmp
+
+            //relocate dst address
+            dst = dst_addr + RIDX(dim-1-j, i, dim);
+
+            *dst = tmp[0]; 
+            dst -= dim;
+            *dst = tmp[1]; 
+            dst -= dim;
+            *dst = tmp[2]; 
+            dst -= dim;
+            *dst = tmp[3]; 
+            dst -= dim;
+            *dst = tmp[4]; 
+            dst -= dim;
+            *dst = tmp[5];
+            dst -= dim;
+            *dst = tmp[6]; 
+            dst -= dim;
+            *dst = tmp[7]; 
+            dst -= dim;
+            *dst = tmp[8]; 
+            dst -= dim;
+            *dst = tmp[9]; 
+            dst -= dim;
+            *dst = tmp[10];
+            dst -= dim;
+            *dst = tmp[11];
+            dst -= dim;
+            *dst = tmp[12];
+            dst -= dim;
+            *dst = tmp[13];
+            dst -= dim;
+            *dst = tmp[14];
+            dst -= dim;
+            *dst = tmp[15];
+        }
+    }
+}
 /*********************************************************************
  * register_rotate_functions - Register all of your different versions
  *     of the rotate kernel with the driver by calling the
@@ -185,6 +309,8 @@ void register_rotate_functions()
     add_rotate_function(&naive_rotate, naive_rotate_descr);   
     add_rotate_function(&rotate, rotate_descr);   
     add_rotate_function(&rotate1, rotate_descr1);   
+    add_rotate_function(&rotate2, rotate_descr2);   
+    add_rotate_function(&rotate3, rotate_descr3);   
     /* ... Register additional test functions here */
 }
 

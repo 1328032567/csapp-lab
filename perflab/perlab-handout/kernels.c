@@ -526,12 +526,52 @@ void naive_smooth(int dim, pixel *src, pixel *dst)
  * smooth - Your current working version of smooth. 
  * IMPORTANT: This is the version you will be graded on
  */
-char smooth_descr[] = "smooth: Current working version";
+char smooth_descr[] = "smooth: Current working version----calculate by column";
 void smooth(int dim, pixel *src, pixel *dst) 
 {
-    naive_smooth(dim, src, dst);
+    for(int i = 0;i < dim; i += 32)
+    {
+        for(int j = 0;j < dim; j++)
+        {
+            for(int k = 0;k < 32; k++)
+            {
+	            dst[RIDX(i+k, j, dim)] = avg(dim, i+k, j, src);
+            }
+        }
+    }
 }
 
+char smooth_descr1[] = "smooth: Current working version----Inline function optimization also calculate by column";
+void smooth1(int dim, pixel *src, pixel *dst) 
+{
+    for(int i = 0;i < dim; i += 32)
+    {
+        for(int j = 0;j < dim; j++)
+        {
+            for(int k = 0;k < 32; k++)
+            {
+                //Inline function
+	            //dst[RIDX(i+k, j, dim)] = avg(dim, i+k, j, src);
+                pixel_sum sum = {0,0,0,0};
+                int ii, jj;
+                for(ii = max(i+k-1, 0); ii <= min(i+k+1, dim-1); ii++) 
+                {
+	                for(jj = max(j-1, 0); jj <= min(j+1, dim-1); jj++) 
+	                {
+                        //accumulate_sum(&sum, src[RIDX(ii, jj, dim)]);
+                        sum.red += (int) src[RIDX(ii, jj, dim)].red;
+                        sum.green += (int) src[RIDX(ii, jj, dim)].green;
+                        sum.blue += (int) src[RIDX(ii, jj, dim)].blue;
+                        sum.num++;
+                    }    
+                }
+                dst[RIDX(i+k, j, dim)].red = (unsigned short) (sum.red/sum.num);
+                dst[RIDX(i+k, j, dim)].green = (unsigned short) (sum.green/sum.num);
+                dst[RIDX(i+k, j, dim)].blue = (unsigned short) (sum.blue/sum.num);
+            }
+        }
+    }
+}
 
 /********************************************************************* 
  * register_smooth_functions - Register all of your different versions
@@ -544,6 +584,7 @@ void smooth(int dim, pixel *src, pixel *dst)
 void register_smooth_functions() {
     add_smooth_function(&naive_smooth, naive_smooth_descr);
     add_smooth_function(&smooth, smooth_descr);
+    add_smooth_function(&smooth1, smooth_descr1);
     /* ... Register additional test functions here */
 }
 

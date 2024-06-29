@@ -296,6 +296,145 @@ void rotate3(int dim, pixel *src, pixel *dst)
         }
     }
 }
+char rotate_descr4[] = "rotate: Current working version----loop unrolling for 32 column and replace address from pointer";
+void rotate4(int dim, pixel *src, pixel *dst) 
+{
+    //two address to store the beginning address of two pixel array
+    //pixel *src_addr = src; to store source address is useless
+    pixel *dst_addr = dst;
+    for(int i = 0; i < dim; i++)
+    {
+        for(int j = 0;j < dim; j += 32)
+        {
+            //relocate dst address
+            dst = dst_addr + RIDX(dim-1-j, i, dim);
+            //use pointer to replace address calculation
+            //1
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+
+            //2
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+
+            //3
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+
+            //4
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+
+            //5
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+
+            //6
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+
+            //7
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+
+            //8
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+            *dst= *src++;
+            dst -= dim;
+        }
+    }
+}
+char rotate_descr5[] = "rotate: Current working version----expand macro and execute column by column also loop hoisting";
+void rotate5(int dim, pixel *src, pixel *dst) 
+{
+    //define two varibles to store address of src and dst
+    int src_addr;
+    int dst_addr; 
+    for(int i = 0;i < dim; i += 32)
+    {
+        for(int j = 0;j < dim; j++)
+        {
+            //exchange elements by column
+            src_addr = i*dim+j;
+            dst_addr = (dim-1-j)*dim+i;
+            for(int k = 0;k < 32; k++)
+            {
+                dst[dst_addr+k] = src[src_addr+dim*k];
+            }
+        }
+    }
+}
+char rotate_descr6[] = "rotate: Current working version----pointer replace macro and loop hoisting";
+void rotate6(int dim, pixel *src, pixel *dst) 
+{
+    //define two varibles to store address of src and dst
+    int src_addr;
+    int dst_addr; 
+    for(int i = 0;i < dim; i += 32)
+    {
+        for(int j = 0;j < dim; j++)
+        {
+            //exchange elements by column
+            src_addr = i*dim+j;
+            dst_addr = (dim-1-j)*dim+i;
+            for(int k = 0;k < 32; k++)
+            {
+                //dst[dst_addr+k] = src[src_addr+dim*k];
+                *dst++ = *src;
+                src += dim;
+            }
+            dst -= 32;
+            src-= dim*32;
+        }
+    }
+}
 /*********************************************************************
  * register_rotate_functions - Register all of your different versions
  *     of the rotate kernel with the driver by calling the
@@ -311,6 +450,9 @@ void register_rotate_functions()
     add_rotate_function(&rotate1, rotate_descr1);   
     add_rotate_function(&rotate2, rotate_descr2);   
     add_rotate_function(&rotate3, rotate_descr3);   
+    add_rotate_function(&rotate4, rotate_descr4);   
+    add_rotate_function(&rotate5, rotate_descr5);   
+    add_rotate_function(&rotate6, rotate_descr6);   
     /* ... Register additional test functions here */
 }
 

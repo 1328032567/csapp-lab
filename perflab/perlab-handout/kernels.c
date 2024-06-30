@@ -577,15 +577,6 @@ void smooth2(int dim, pixel *src, pixel *dst)
 {
     //define and initialize pixel array
     pixel_sum sum[dim][dim];
-    /*
-    for(int i = 0;i < dim; i++)
-    {
-        for(int j = 0;j < dim; j++)
-        {
-            sum[i][j].red = sum[i][j].green = sum[i][j].blue = 0;
-        }
-    }
-    */
 
     //up and down adjacent
     //store the first and the last row
@@ -646,7 +637,6 @@ void smooth2(int dim, pixel *src, pixel *dst)
         dst[(dim-1)*dim].green = (unsigned short)((sum[dim-1][0].green + sum[dim-1][1].green) / 4);
         dst[(dim-1)*dim].blue = (unsigned short)((sum[dim-1][0].blue + sum[dim-1][1].blue) / 4);
 
-//WRONG1
         //dst[dim-1][dim-1]
         dst[(dim-1)*(dim+1)].red = (unsigned short)((sum[dim-1][dim-1].red + sum[dim-1][dim-2].red) / 4);
         dst[(dim-1)*(dim+1)].green = (unsigned short)((sum[dim-1][dim-1].green + sum[dim-1][dim-2].green) / 4);

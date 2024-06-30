@@ -646,7 +646,7 @@ void smooth2(int dim, pixel *src, pixel *dst)
         dst[(dim-1)*dim].green = (sum[dim-1][0].green + sum[dim-1][1].green) / 4;
         dst[(dim-1)*dim].blue = (sum[dim-1][0].blue + sum[dim-1][1].blue) / 4;
 
-    //WRONG1
+//WRONG1
         //dst[dim-1][dim-1]
         dst[(dim-1)*(dim+1)].red = (sum[dim-1][dim-1].red + sum[dim-1][dim-2].red) / 4;
         dst[(dim-1)*(dim+1)].green = (sum[dim-1][dim-1].green + sum[dim-1][dim-2].green) / 4;
@@ -671,7 +671,7 @@ void smooth2(int dim, pixel *src, pixel *dst)
             dst[(dim-1)*dim+i].blue = (sum[dim-1][i-1].blue + sum[dim-1][i].blue + sum[dim-1][i+1].blue) / 6;
         }
         //left line
-        for(int i = 0;i < (dim-1);i++)
+        for(int i = 1;i < (dim-1);i++)
         {
             //dst[i*dim] = (sum[i][0] + sum[i][1]) / 6;
             dst[i*dim].red = (sum[i][0].red + sum[i][1].red) / 6;
@@ -679,7 +679,7 @@ void smooth2(int dim, pixel *src, pixel *dst)
             dst[i*dim].blue = (sum[i][0].blue + sum[i][1].blue) / 6;
         }
         //right line
-        for(int i = 0;i < (dim-1);i++)
+        for(int i = 1;i < (dim-1);i++)
         {
             //dst[i*dim+dim-1] = (sum[i][dim-1] + sum[i][dim-2]) / 6;
             dst[i*dim+dim-1].red = (sum[i][dim-1].red + sum[i][dim-2].red) / 6;

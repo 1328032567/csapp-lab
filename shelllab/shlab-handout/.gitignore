@@ -1,0 +1,4 @@
+#Ignore executable binary file
+*
+#Unignore file
+!*.*

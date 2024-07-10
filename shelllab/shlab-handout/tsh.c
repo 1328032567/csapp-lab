@@ -54,14 +54,14 @@ struct job_t jobs[MAXJOBS]; /* The job list */
 
 /* Function prototypes */
 
+/* Add auxiliary functions*/
+pid_t Fork(void);
+
 /* Here are the functions that you will implement */
 void eval(char *cmdline);
 int builtin_cmd(char **argv);
 void do_bgfg(char **argv);
 void waitfg(pid_t pid);
-
-/* Add auxiliary functions*/
-pid_t Fork(void);
 
 void sigchld_handler(int sig);
 void sigtstp_handler(int sig);
@@ -155,17 +155,6 @@ int main(int argc, char **argv)
     exit(0); /* control never reaches here */
 }
   
-/*
- * Packed fork function into Fork
- */
-pid_t Fork(void)
-{
-    pid_t pid;
-
-    if((pid = fork()) < 0)
-        unix_error("Fork error");
-    return pid;
-}
 
 /* 
  * eval - Evaluate the command line that the user has just typed in
@@ -272,7 +261,15 @@ int parseline(const char *cmdline, char **argv)
  *    it immediately.  
  */
 int builtin_cmd(char **argv) 
-{
+{ 
+    if (!strcmp(argv[0], "quit"))   /* quit command */
+        exit(0);
+    if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg"))     /* fg or bg command */
+        do_bgfg(argv);
+    if (!strcmp(argv[0], "jobs"))   /* jobs command */
+        listjobs(jobs);
+    if(!strcmp(argv[0], "&"))       /* Ignore singleton & */
+        return 1;
     return 0;     /* not a builtin command */
 }
 
@@ -535,6 +532,17 @@ handler_t *Signal(int signum, handler_t *handler)
     if (sigaction(signum, &action, &old_action) < 0)
 	unix_error("Signal error");
     return (old_action.sa_handler);
+}
+/*
+ * Fork - wrapper for the fork function
+ */
+pid_t Fork(void)
+{
+    pid_t pid;
+
+    if((pid = fork()) < 0)
+        unix_error("Fork error");
+    return pid;
 }
 
 /*

@@ -60,6 +60,9 @@ int builtin_cmd(char **argv);
 void do_bgfg(char **argv);
 void waitfg(pid_t pid);
 
+/* Add auxiliary functions*/
+pid_t Fork(void);
+
 void sigchld_handler(int sig);
 void sigtstp_handler(int sig);
 void sigint_handler(int sig);
@@ -152,6 +155,18 @@ int main(int argc, char **argv)
     exit(0); /* control never reaches here */
 }
   
+/*
+ * Packed fork function into Fork
+ */
+pid_t Fork(void)
+{
+    pid_t pid;
+
+    if((pid = fork()) < 0)
+        unix_error("Fork error");
+    return pid;
+}
+
 /* 
  * eval - Evaluate the command line that the user has just typed in
  * 
@@ -165,6 +180,33 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
+    char *argv[MAXARGS]; /* Argument list execve() */
+    char buf[MAXLINE];   /* Holds modified command line */
+    int bg;              /* Should the job run in bg or fg? */
+    pid_t pid;           /* Process id */
+
+    strcpy(buf, cmdline);
+    bg = parseline(buf, argv);
+    if (argv[0] == NULL)
+        return;   /* Ignore empty lines */
+
+    if (!builtin_cmd(argv)){
+        if((pid = Fork()) == 0){    /* Child runs user job */
+            if(execve(argv[0], argv, environ) < 0) {
+                printf("%s: Command not found.\n", argv[0]);
+                exit(0);
+            }
+        }
+
+        /* Parent waits for foreground job to terminate*/
+        if (!bg) {
+            int status;
+            if (waitpid(pid, &status, 0) < 0)
+                unix_error("waitfg:waitpid error");
+        }
+        else
+            printf("%d %s", pid, cmdline);
+    }
     return;
 }
 

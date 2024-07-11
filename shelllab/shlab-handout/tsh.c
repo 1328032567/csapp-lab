@@ -363,15 +363,15 @@ void sigint_handler(int sig)
 
     /* Send SIGINT to the foreground job */
     if (pid != 0){
-        printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, sig);
         deletejob(jobs, pid);
         kill(-pid, sig);
+        printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, sig);
     }
     else {
         printf("No foreground job.\n");
     }
     /* handler code end */
-    
+
     sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     return;
 }
@@ -383,7 +383,30 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
-    printf("Got signal SIGTSTP(ctrl-z).\n");
+    /* Set signal mask */
+    sigset_t mask, prev_mask;
+
+    sigfillset(&mask);
+    sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+
+    /* handle code */
+    pid_t pid;
+    int jid;
+    /* Get pid and jid */
+    pid = fgpid(jobs);
+    jid = pid2jid(pid);
+
+    if(pid != 0){
+        getjobpid(jobs, pid)->state = ST;
+        kill(-pid, sig);
+        printf("Job [%d] (%d) stopped by signal %d\n", jid, pid, sig);
+    }
+    else {
+        printf("No foreground job.\n");
+    }
+    /* handle code end*/
+
+    sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     return;
 }
 

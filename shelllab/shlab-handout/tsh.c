@@ -203,7 +203,7 @@ void eval(char *cmdline)
             if (waitpid(pid, &status, 0) < 0)
                 unix_error("waitfg:waitpid error");
         }
-        else
+        else /* Parent doesn't wait but add job to job list */
         {
             addjob(jobs, pid, BG, cmdline);
             printf("[%d] (%d) %s", nextjid-1, pid, cmdline);
@@ -278,9 +278,15 @@ int builtin_cmd(char **argv)
     if (!strcmp(argv[0], "quit"))   /* quit command */
         exit(0);
     if (!strcmp(argv[0], "fg") || !strcmp(argv[0], "bg"))     /* fg or bg command */
+    {
         do_bgfg(argv);
+        return 1;
+    }
     if (!strcmp(argv[0], "jobs"))   /* jobs command */
+    {
         listjobs(jobs);
+        return 1;
+    }
     if(!strcmp(argv[0], "&"))       /* Ignore singleton & */
         return 1;
     return 0;     /* not a builtin command */
@@ -291,6 +297,7 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
+    printf("Command bg and fg.\n");
     return;
 }
 

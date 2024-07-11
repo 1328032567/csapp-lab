@@ -189,6 +189,8 @@ void eval(char *cmdline)
         /* Block SIGCHLD and save previous blocked set */
         sigprocmask(SIG_BLOCK, &mask, &prev_mask);
         if((pid = Fork()) == 0){    /* Child runs user job */
+            /* Put the child in a new process group */
+            setpgid(0, 0);
             /* Restore previous blocked set, unblocking SIGCHLD */
             sigprocmask(SIG_SETMASK, &prev_mask, NULL);
             if(execve(argv[0], argv, environ) < 0) {
@@ -200,6 +202,9 @@ void eval(char *cmdline)
         /* Parent waits for foreground job to terminate*/
         if (!bg) {
             int status;
+            /* Add job to job list */
+            addjob(jobs, pid, FG, cmdline);
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
             if (waitpid(pid, &status, 0) < 0)
                 unix_error("waitfg:waitpid error");
         }
@@ -207,6 +212,7 @@ void eval(char *cmdline)
         {
             addjob(jobs, pid, BG, cmdline);
             printf("[%d] (%d) %s", nextjid-1, pid, cmdline);
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
         }
     }
     return;
@@ -297,7 +303,16 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    printf("Command bg and fg.\n");
+    if (!strcmp(argv[0], "fg")){
+
+    }
+    else if(!strcmp(argv[0], "bg")){
+
+    }
+    else {
+        printf("Error occurs.\n");
+        exit(0);
+    }
     return;
 }
 
@@ -322,6 +337,7 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
+    printf("Got signal SIGCHLD.\n");
     return;
 }
 
@@ -332,6 +348,31 @@ void sigchld_handler(int sig)
  */
 void sigint_handler(int sig) 
 {
+    /* Set signal mask */
+    sigset_t mask, prev_mask;
+
+    sigfillset(&mask);
+    sigprocmask(SIG_BLOCK, &mask, &prev_mask);
+
+    /* handler code */
+    pid_t pid;
+    int jid;
+    /* Get pid and jid */
+    pid = fgpid(jobs);
+    jid = pid2jid(pid);
+
+    /* Send SIGINT to the foreground job */
+    if (pid != 0){
+        printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, sig);
+        deletejob(jobs, pid);
+        kill(-pid, sig);
+    }
+    else {
+        printf("No foreground job.\n");
+    }
+    /* handler code end */
+    
+    sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     return;
 }
 
@@ -342,6 +383,7 @@ void sigint_handler(int sig)
  */
 void sigtstp_handler(int sig) 
 {
+    printf("Got signal SIGTSTP(ctrl-z).\n");
     return;
 }
 

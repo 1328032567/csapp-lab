@@ -5,6 +5,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/signal.h>
 #include <unistd.h>
 #include <string.h>
 #include <ctype.h>
@@ -169,18 +170,27 @@ int main(int argc, char **argv)
 */
 void eval(char *cmdline) 
 {
-    char *argv[MAXARGS]; /* Argument list execve() */
-    char buf[MAXLINE];   /* Holds modified command line */
-    int bg;              /* Should the job run in bg or fg? */
-    pid_t pid;           /* Process id */
+    char *argv[MAXARGS];        /* Argument list execve() */
+    char buf[MAXLINE];          /* Holds modified command line */
+    int bg;                     /* Should the job run in bg or fg? */
+    pid_t pid;                  /* Process id */
+    sigset_t mask, prev_mask;   /* Signal mask */
 
     strcpy(buf, cmdline);
     bg = parseline(buf, argv);
     if (argv[0] == NULL)
         return;   /* Ignore empty lines */
 
+    /* Initialize and add signal*/
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+
     if (!builtin_cmd(argv)){
+        /* Block SIGCHLD and save previous blocked set */
+        sigprocmask(SIG_BLOCK, &mask, &prev_mask);
         if((pid = Fork()) == 0){    /* Child runs user job */
+            /* Restore previous blocked set, unblocking SIGCHLD */
+            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
             if(execve(argv[0], argv, environ) < 0) {
                 printf("%s: Command not found.\n", argv[0]);
                 exit(0);
@@ -194,7 +204,10 @@ void eval(char *cmdline)
                 unix_error("waitfg:waitpid error");
         }
         else
-            printf("%d %s", pid, cmdline);
+        {
+            addjob(jobs, pid, BG, cmdline);
+            printf("[%d] (%d) %s", nextjid-1, pid, cmdline);
+        }
     }
     return;
 }
@@ -374,7 +387,7 @@ int addjob(struct job_t *jobs, pid_t pid, int state, char *cmdline)
 	    jobs[i].state = state;
 	    jobs[i].jid = nextjid++;
 	    if (nextjid > MAXJOBS)
-		nextjid = 1;
+		    nextjid = 1;
 	    strcpy(jobs[i].cmdline, cmdline);
   	    if(verbose){
 	        printf("Added job [%d] %d %s\n", jobs[i].jid, jobs[i].pid, jobs[i].cmdline);
@@ -530,7 +543,7 @@ handler_t *Signal(int signum, handler_t *handler)
     action.sa_flags = SA_RESTART; /* restart syscalls if possible */
 
     if (sigaction(signum, &action, &old_action) < 0)
-	unix_error("Signal error");
+	    unix_error("Signal error");
     return (old_action.sa_handler);
 }
 /*

@@ -347,7 +347,7 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    printf("Got signal SIGCHLD.\n");
+    //printf("Got signal SIGCHLD.\n");
 
     /* Set signal mask */
     sigset_t mask, prev_mask;

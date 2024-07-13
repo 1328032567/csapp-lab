@@ -202,14 +202,8 @@ void eval(char *cmdline)
 
         /* Parent waits for foreground job to terminate*/
         if (!bg) {
-            //int status;
             /* Add job to job list */
             addjob(jobs, pid, FG, cmdline);
-            /*
-            if (waitpid(pid, &status, 0) < 0)
-                unix_error("waitfg:waitpid error");
-            */
-            //use waitfg to replace waitpid function
             waitfg(pid);
         }
         else /* Parent doesn't wait but add job to job list */
@@ -342,6 +336,7 @@ void do_bgfg(char **argv)
         return;
     }
 
+    /* Execute fg and bg command */
     if(!strcmp(cmd, "fg")){
         getjobjid(jobs, jid)->state = FG;
         kill(-pid, SIGCONT);
@@ -385,8 +380,6 @@ void waitfg(pid_t pid)
  */
 void sigchld_handler(int sig) 
 {
-    //printf("Got signal SIGCHLD.\n");
-
     /* Set signal mask */
     sigset_t mask, prev_mask;
     sigfillset(&mask);
@@ -414,7 +407,7 @@ void sigchld_handler(int sig)
             printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, WTERMSIG(status));
         }
         else if(WIFCONTINUED(status)){ //child process continued
-            //wait to acheive
+            /* operation finished in function do_bgfg */
         }
         else   
             printf("Wrong wait child process.\n");
@@ -441,20 +434,15 @@ void sigint_handler(int sig)
 
     /* handler code */
     pid_t pid;
-    //int jid;
     /* Get pid and jid */
     pid = fgpid(jobs);
-    //jid = pid2jid(pid);
 
     /* Send SIGINT to the foreground job */
     if (pid != 0){
-        //deletejob(jobs, pid);
         kill(-pid, sig);
-        //printf("Job [%d] (%d) terminated by signal %d\n", jid, pid, sig);
     }
-    else {
+    else
         printf("No foreground job.\n");
-    }
     /* handler code end */
 
     sigprocmask(SIG_SETMASK, &prev_mask, NULL);
@@ -476,19 +464,13 @@ void sigtstp_handler(int sig)
 
     /* handle code */
     pid_t pid;
-    //int jid;
     /* Get pid and jid */
     pid = fgpid(jobs);
-    //jid = pid2jid(pid);
 
-    if(pid != 0){
-        //getjobpid(jobs, pid)->state = ST;
+    if(pid != 0)
         kill(-pid, sig);
-        //printf("Job [%d] (%d) stopped by signal %d\n", jid, pid, sig);
-    }
-    else {
+    else 
         printf("No foreground job.\n");
-    }
     /* handle code end*/
 
     sigprocmask(SIG_SETMASK, &prev_mask, NULL);

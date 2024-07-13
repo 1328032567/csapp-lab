@@ -205,7 +205,6 @@ void eval(char *cmdline)
             int status;
             /* Add job to job list */
             addjob(jobs, pid, FG, cmdline);
-            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
             /*
             if (waitpid(pid, &status, 0) < 0)
                 unix_error("waitfg:waitpid error");
@@ -217,8 +216,8 @@ void eval(char *cmdline)
         {
             addjob(jobs, pid, BG, cmdline);
             printf("[%d] (%d) %s", nextjid-1, pid, cmdline);
-            sigprocmask(SIG_SETMASK, &prev_mask, NULL);
         }
+        sigprocmask(SIG_SETMASK, &prev_mask, NULL);
     }
     return;
 }

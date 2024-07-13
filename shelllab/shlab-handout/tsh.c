@@ -206,8 +206,12 @@ void eval(char *cmdline)
             /* Add job to job list */
             addjob(jobs, pid, FG, cmdline);
             sigprocmask(SIG_SETMASK, &prev_mask, NULL);
+            /*
             if (waitpid(pid, &status, 0) < 0)
                 unix_error("waitfg:waitpid error");
+            */
+            //use waitfg to replace waitpid function
+            waitfg(pid);
         }
         else /* Parent doesn't wait but add job to job list */
         {

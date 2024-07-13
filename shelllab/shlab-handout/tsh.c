@@ -5,6 +5,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/_types/_sigset_t.h>
 #include <sys/signal.h>
 #include <unistd.h>
 #include <string.h>
@@ -321,6 +322,14 @@ void do_bgfg(char **argv)
  */
 void waitfg(pid_t pid)
 {
+    sigset_t mask, prev;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGCHLD);
+
+    sigprocmask(SIG_BLOCK, &mask, &prev);
+    while(fgpid(jobs) == pid)
+        sigsuspend(&prev);
+    sigprocmask(SIG_SETMASK, &prev, NULL);
     return;
 }
 

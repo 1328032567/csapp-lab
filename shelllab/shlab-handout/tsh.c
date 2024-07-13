@@ -307,15 +307,53 @@ int builtin_cmd(char **argv)
  */
 void do_bgfg(char **argv) 
 {
-    if (!strcmp(argv[0], "fg")){
+    /* Declare command and id pointer*/
+    char *cmd = argv[0];
+    char *id = argv[1];
 
+    if(id == NULL){
+        printf("%s command requires PID or %%jobid argument\n", cmd);
+        return;
     }
-    else if(!strcmp(argv[0], "bg")){
 
+    /* Declare job, pid and jid */
+    pid_t pid;
+    int jid;
+
+    /* Check if the id is a pid or jid */
+    if(id[0] == '%'){
+        jid = atoi(&id[1]);
+        if((getjobjid(jobs, jid)) == NULL){
+            printf("%s: No such job\n", id);
+            return;
+        }
+        else
+            pid = getjobjid(jobs, jid)->pid;
+    }
+    else if(isdigit(id[0])){
+        pid = atoi(id);
+        if((jid = pid2jid(pid)) == 0){
+            printf("(%d): No such process\n", pid);
+            return;
+        }
     }
     else {
-        printf("Error occurs.\n");
-        exit(0);
+        printf("%s: argument must be a PID or %%jobid\n", cmd);
+        return;
+    }
+
+    if(!strcmp(cmd, "fg")){
+        getjobjid(jobs, jid)->state = FG;
+        kill(-pid, SIGCONT);
+        waitfg(pid);
+    }
+    else if(!strcmp(cmd, "bg")){
+        getjobjid(jobs, jid)->state = BG;
+        kill(-pid, SIGCONT);
+        printf("[%d] (%d) %s", jid, pid, getjobjid(jobs, jid)->cmdline);
+    }
+    else {
+        printf("Wrong command.\n");
     }
     return;
 }

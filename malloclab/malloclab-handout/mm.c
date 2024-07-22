@@ -161,13 +161,12 @@ static void *find_fit(size_t asize)
 {
     /* First-fit search */
     void *bp;
-    size_t size;
-    for(bp = heap_listp; (size = GET_SIZE(HDRP(bp))) > 0; bp = NEXT_BLKP(bp)){
-        if(!GET_ALLOC(HDRP(bp)) && asize <= size){
+    for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
+        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
             return bp;
         }
     }
-    return NULL;
+    return NULL;/* No fit */
 }
 
 /*
@@ -222,7 +221,7 @@ static void *coalesce(void *bp)
     }
 
     else if (!prev_alloc && next_alloc) {       /* Case 3 */
-        size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, 0));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
         bp = PREV_BLKP(bp); 

@@ -159,19 +159,14 @@ void *mm_malloc(size_t size)
  */
 static void *find_fit(size_t asize)
 {
-    /* Initialize bp pointer */
-    char *bp = heap_listp;
-
+    /* First-fit search */
+    void *bp;
     size_t size;
-    int alloc;
-    while(!((size = GET_SIZE(HDRP(bp))) == 0 && (alloc = GET_ALLOC(HDRP(bp))) == 1))/* Not the epilogue block */
-    {
-        if(size >= asize && alloc == 0) /* Find the fit block */
+    for(bp = heap_listp; (size = GET_SIZE(HDRP(bp))) > 0; bp = NEXT_BLKP(bp)){
+        if(!GET_ALLOC(HDRP(bp)) && asize <= size){
             return bp;
-        else /* Dont fit, point to next block */
-            bp = NEXT_BLKP(bp);
+        }
     }
-    /* Allocate failed */
     return NULL;
 }
 
@@ -182,16 +177,16 @@ static void place(void *bp, size_t asize)
 {
     size_t size = GET_SIZE(HDRP(bp));
     size_t rest = size - asize;
-    if(rest < 16){ /* Not split*/
+    if(rest < (2*DSIZE)){ /* Not split*/
        PUT(HDRP(bp), PACK(size, 1));
        PUT(FTRP(bp), PACK(size, 1));
     }
     else{ /* Split */
         PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(asize, 1));
+        bp = NEXT_BLKP(bp);
+        PUT(HDRP(bp), PACK(rest, 0));
         PUT(FTRP(bp), PACK(rest, 0));
-
-        PUT((char *)bp + asize, PACK(asize, 1));
-        PUT((char *)bp + asize + WSIZE, PACK(rest, 0));
     }
 }
 

@@ -71,6 +71,12 @@ team_t team = {
 #define NEXT_BLKP(bp)   ((char *)(bp) + GET_SIZE(((char *)(bp) - WSIZE))) 
 #define PREV_BLKP(bp)   ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
+/* Additional Functions*/
+static void *extend_heap(size_t words);
+static void *coalesce(void *bp);
+static void *find_fit(size_t asize);
+static void place(void *bp, size_t asize);
+
 /* Define a global variable to point to the end of prologue block */
 static void *heap_listp;
 /* 
@@ -120,13 +126,72 @@ static void *extend_heap(size_t words)
  */
 void *mm_malloc(size_t size)
 {
-    int newsize = ALIGN(size + SIZE_T_SIZE);
-    void *p = mem_sbrk(newsize);
-    if (p == (void *)-1)
-	return NULL;
-    else {
-        *(size_t *)p = size;
-        return (void *)((char *)p + SIZE_T_SIZE);
+    size_t asize;       /* Adjusted block size */
+    size_t extendsize;  /* Amount to extend heap if no fit */
+    char *bp;
+
+    /* Ignore spurious requests */
+    if(size == 0)
+        return NULL;
+
+    /* Adjust block size to include overhead and alignment reqs. */
+    if(size <= DSIZE)
+        asize = 2*DSIZE;
+    else
+        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
+
+    /* Search the free list for a fit */
+    if((bp = find_fit(asize)) != NULL) {
+        place(bp, asize);
+        return bp;
+    }
+
+    /* No fit found. Get more memory and place the block */
+    extendsize = MAX(asize, CHUNKSIZE);
+    if((bp = extend_heap(extendsize / WSIZE)) == NULL)
+        return NULL;
+    place(bp, asize);
+    return bp;
+}
+
+/*
+ * find_fit - Find a fitable block to allocate.
+ */
+static void *find_fit(size_t asize)
+{
+    /* Initialize bp pointer */
+    char *bp = heap_listp;
+
+    size_t size;
+    int alloc;
+    while(!((size = GET_SIZE(HDRP(bp))) == 0 && (alloc = GET_ALLOC(HDRP(bp))) == 1))/* Not the epilogue block */
+    {
+        if(size >= asize && alloc == 0) /* Find the fit block */
+            return bp;
+        else /* Dont fit, point to next block */
+            bp = NEXT_BLKP(bp);
+    }
+    /* Allocate failed */
+    return NULL;
+}
+
+/*
+ * place - Place the request block at the beginning of the free block.
+ */
+static void place(void *bp, size_t asize)
+{
+    size_t size = GET_SIZE(HDRP(bp));
+    size_t rest = size - asize;
+    if(rest < 16){ /* Not split*/
+       PUT(HDRP(bp), PACK(size, 1));
+       PUT(FTRP(bp), PACK(size, 1));
+    }
+    else{ /* Split */
+        PUT(HDRP(bp), PACK(asize, 1));
+        PUT(FTRP(bp), PACK(rest, 0));
+
+        PUT((char *)bp + asize, PACK(asize, 1));
+        PUT((char *)bp + asize + WSIZE, PACK(rest, 0));
     }
 }
 

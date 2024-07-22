@@ -166,7 +166,35 @@ static void *find_fit(size_t asize)
             return bp;
         }
     }
-    return NULL;/* No fit */
+    return NULL; /* No fit */
+    
+    // /* Best-fit search */
+    // void *bp = heap_listp;
+    // void *best_bp;
+    // int alloc;
+    // size_t size;
+    // size_t rest;
+    // size_t min_rest = 0xffffffff;
+    // int flag = 0;
+
+    // while((size = GET_SIZE(HDRP(bp))) > 0){ /* Not the epilogue block */
+    //     if((alloc = GET_ALLOC(HDRP(bp))) == 0 && asize <= size){ /* Not allocated */
+    //         rest = size - asize;
+    //         flag = 1;
+    //         if(rest == 0){
+    //             return bp;
+    //         }
+    //         else if(rest < min_rest){ /* Update rest and bp pointer */
+    //             min_rest = rest;
+    //             best_bp = bp;
+    //         }
+    //     }
+    //     bp = NEXT_BLKP(bp);
+    // }
+    // if(flag == 1){ /* Best match*/
+    //     return best_bp;
+    // }
+    // return NULL;/* No fit block */
 }
 
 /*

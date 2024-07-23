@@ -79,12 +79,12 @@ team_t team = {
 #define PREV_BLKP(bp)   ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute address of next and previous nodes in the list*/
-#define NEXT_NODE(bp)   ((char *)(mem_heap_lo() + *(unsigned int *)((bp) + WSIZE)))
-#define PREV_NODE(bp)   ((char *)(mem_heap_lo() + *(unsigned int *)(bp)))
+#define GET_NEXT_NODE(bp)   ((char *)(mem_heap_lo() + *(unsigned int *)((bp) + WSIZE)))
+#define GET_PREV_NODE(bp)   ((char *)(mem_heap_lo() + *(unsigned int *)(bp)))
 
-/* Given block ptr bp, set previous node and next node address */
-#define SET_NEXT_NODE(bp, addr)     (*(unsigned int *)((bp) + WSIZE) = (unsigned int)(addr))
-#define SET_PREV_NODE(bp, addr)     (*(unsigned int *)(bp) = (unsigned int)(addr))
+/* Given block ptr bp, set previous pointer and next pointer address */
+#define SET_NEXT_POINTER(bp, addr)     (*(unsigned int *)((char *)(bp) + WSIZE) = (unsigned int)(addr))
+#define SET_PREV_POINTER(bp, addr)     (*(unsigned int *)(bp) = (unsigned int)(addr))
 
 /* Define the number of the free_list */
 #define FREE_LIST_NUM 15
@@ -104,6 +104,18 @@ static void insert_node(void* bp);
 
 /* Define a global variable to point to the end of prologue block */
 static void *heap_listp;
+
+/*
+ * Description of the free_list:
+ *      head node: previous_pointer -> NULL, next_pointer -> normal node
+ *      tail node: previous_pointer -> normal node, next_pointer -> NULL
+ *      free_list[index]: point to the free head node's address.
+        image:                   /--------------\               /--------------\               /---------------\
+        free_list[index]        V                \             V                \             V                 \
+        address     --->    [head_node]    |--->  \    [normal_node1]  |--->     \     [normal_node2]    |--->   \     [tail_node]
+               NULL <---    previous      |        \-- previous       |           \--  previous         |         \--  previous
+                            next       --|             next        --|                 next          --|               next     ---> NULL
+ */
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -114,7 +126,8 @@ int mm_init(void)
     for(int i = 0; i < FREE_LIST_NUM; i++){
         if((heap_listp = mem_sbrk(WSIZE)) == (void *)(-1))
             return -1;
-        free_list[i] = mem_heap_lo();
+        //different free_list[i] = mem_heap_lo();
+        free_list[i] = NULL;
     }
     /* Create the prologue header, footer and epilogue header at heap */
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
@@ -341,6 +354,51 @@ static void *coalesce(void *bp)
     }
     insert_node(bp);
     return bp;
+}
+
+/*
+ * insert_node - insert the node to the free list.
+ */
+static void insert_node(void *bp)
+{
+    size_t size = GET_SIZE(HDRP(bp));
+    int index = get_index(size);
+    char *newptr = bp;
+    char *oldptr = free_list[index];
+    free_list[index] = newptr;  /* Insert new node to the head of the list. */
+
+    if(oldptr == NULL){ /* free_list[index] point to tail */
+        SET_PREV_POINTER(newptr, NULL);
+        SET_NEXT_POINTER(newptr, NULL);
+    }
+    else{   /* Insert new node to the list. */
+        SET_PREV_POINTER(newptr, NULL);
+        SET_NEXT_POINTER(newptr, oldptr);
+        SET_PREV_POINTER(oldptr, newptr);
+    }
+}
+
+/*
+ * delete_node - delete the free node from the list.
+ */
+static void delete_node(void *bp)
+{
+    size_t size = GET_SIZE(HDRP(bp));
+    int index = get_index(size);
+    char *prevptr = GET_PREV_NODE(bp);
+    char *nextptr = GET_NEXT_NODE(bp);
+
+    if(prevptr == NULL){    /* Delete head node */
+        free_list[index] = nextptr;
+        SET_PREV_POINTER(nextptr, NULL);
+    }
+    else if(nextptr == NULL){   /* Delete tail node */
+        SET_NEXT_POINTER(prevptr, NULL);
+    }
+    else{   /* Delete normal node */
+        SET_NEXT_POINTER(prevptr, nextptr);
+        SET_PREV_POINTER(nextptr, prevptr);
+    }
 }
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free

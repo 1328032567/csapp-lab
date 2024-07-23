@@ -53,7 +53,7 @@ team_t team = {
 
 /* Pack a size and allocated bit into a word */
 /* size -> header + payload + footer, prev_alloc -> previous block whether allocated, alloc -> block whether allocated*/
-#define PACK(size, prev_alloc, alloc)   ((size) | (prev_alloc) | (alloc))
+#define PACK(size, prev_alloc, alloc)   ((size) | (prev_alloc)<<1 | (alloc))
 
 /* Read and write a word at address p */
 #define GET(p)          (*(unsigned int *)(p))
@@ -63,6 +63,12 @@ team_t team = {
 #define GET_SIZE(p)         (GET(p) & ~0x7)     /* Sum of header, footer and payload */
 #define GET_ALLOC(p)        (GET(p) & 0x1)
 #define GET_PREV_ALLOC(p)   (GET(p) & 0x2)
+
+/* Read the flag bit, and set the value from p */
+#define SET_ALLOC(p)            (GET(p) &= 0x1)
+#define SET_FREE(p)             (GET(p) &= ~0x1)
+#define SET_PREV_ALLOC(p)       (GET(p) &= 0x2)
+#define SET_PREV_FREE(p)        (GET(p) &= ~0x2)
 
 /* Given block ptr bp, compute address of its header and footer */
 #define HDRP(bp)        ((char *)(bp) - WSIZE)
@@ -91,6 +97,11 @@ static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
 
+static int get_index(size_t size);
+
+static void delete_node(void* bp);
+static void insert_node(void* bp);
+
 /* Define a global variable to point to the end of prologue block */
 static void *heap_listp;
 /* 
@@ -105,7 +116,6 @@ int mm_init(void)
             return -1;
         free_list[i] = mem_heap_lo();
     }
-
     /* Create the prologue header, footer and epilogue header at heap */
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
         return -1;
@@ -135,12 +145,51 @@ static void *extend_heap(size_t words)
        return NULL;
 
    /* Initialize free block header/footer and the epilogue header */
-   PUT(HDRP(bp), PACK(size, 0));            /* Free block header */
-   PUT(FTRP(bp), PACK(size, 0));            /* Free block footer */
-   PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 1));    /* New epilogue header */
+   size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
+   PUT(HDRP(bp), PACK(size, prev_alloc, 0));    /* New free block header */
+   PUT(FTRP(bp), PACK(size, prev_alloc, 0));    /* New free block footer */
+   PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 0, 1));    /* New epilogue header */
 
    /* Coalesce if the previous block was free */
    return coalesce(bp);
+}
+
+/*
+ * get_index - get free_list index by free block size.
+ */
+static int get_index(size_t size)
+{
+    /* Judge the range of size, and return list index */
+    if(size > 0 && size <= 24)
+        return 0;
+    else if(size <= 32)
+        return 1;
+    else if(size <= 64)
+        return 2;
+    else if(size <= 80)
+        return 3;
+    else if(size <= 120)
+        return 4;
+    else if(size <= 240)
+        return 5;
+    else if(size <= 480)
+        return 6;
+    else if(size <= 960)
+        return 7;
+    else if(size <= 1920)
+        return 8;
+    else if(size <= 3840)
+        return 9;
+    else if(size <= 7680)
+        return 10;
+    else if(size <= 15360)
+        return 11;
+    else if(size <= 30720)
+        return 12;
+    else if(size <= 61440)
+        return 13;
+    else 
+        return 14;
 }
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
@@ -261,27 +310,36 @@ static void *coalesce(void *bp)
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) {             /* Case 1 */
-        return bp;
+        SET_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));
     }
 
     else if (prev_alloc && !next_alloc) {       /* Case 2 */
+        delete_node(NEXT_BLKP(bp));
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        PUT(HDRP(bp), PACK(size, 0));
-        PUT(FTRP(bp), PACK(size, 0));
+        PUT(HDRP(bp), PACK(size, 1, 0));
+        PUT(FTRP(bp), PACK(size, 1, 0));
     }
 
     else if (!prev_alloc && next_alloc) {       /* Case 3 */
+        delete_node(PREV_NODE(bp));
+        SET_PREV_FREE(HDRP(NEXT_NODE(bp)));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
-        PUT(FTRP(bp), PACK(size, 0));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
+        size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
+        PUT(FTRP(bp), PACK(size, prev_prev_alloc, 0));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
         bp = PREV_BLKP(bp); 
     }
     else if (!prev_alloc && !next_alloc) {      /* Case 4 */
+        delete_node(PREV_NODE(bp));
+        delete_node(NEXT_NODE(bp));
+        SET_PREV_FREE(HDRP(NEXT_NODE(NEXT_NODE(bp))));
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
-        PUT(HDRP(PREV_BLKP(bp)), PACK(size, 0));
-        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, 0));
+        size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
+        PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
+        PUT(FTRP(NEXT_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
         bp = PREV_BLKP(bp);
     }
+    insert_node(bp);
     return bp;
 }
 /*

@@ -244,41 +244,17 @@ void *mm_malloc(size_t size)
 static void *find_fit(size_t asize)
 {
     /* First-fit search */
-    void *bp;
-    for(bp = heap_listp; GET_SIZE(HDRP(bp)) > 0; bp = NEXT_BLKP(bp)){
-        if(!GET_ALLOC(HDRP(bp)) && (asize <= GET_SIZE(HDRP(bp)))){
-            return bp;
+    void *ptr;  /* Point to the free block */
+    size_t size;
+    int index = get_index(asize);
+    for(int i = index; i < FREE_LIST_NUM; i++){
+        for(ptr = free_list[i]; GET_NEXT_NODE(ptr) != NULL; ptr = GET_NEXT_NODE(ptr)){
+            size = GET_SIZE(HDRP(ptr));
+            if(size >= asize)
+                return ptr;
         }
     }
     return NULL; /* No fit */
-    
-    // /* Best-fit search */
-    // void *bp = heap_listp;
-    // void *best_bp;
-    // int alloc;
-    // size_t size;
-    // size_t rest;
-    // size_t min_rest = 0xffffffff;
-    // int flag = 0;
-
-    // while((size = GET_SIZE(HDRP(bp))) > 0){ /* Not the epilogue block */
-    //     if((alloc = GET_ALLOC(HDRP(bp))) == 0 && asize <= size){ /* Not allocated */
-    //         rest = size - asize;
-    //         flag = 1;
-    //         if(rest == 0){
-    //             return bp;
-    //         }
-    //         else if(rest < min_rest){ /* Update rest and bp pointer */
-    //             min_rest = rest;
-    //             best_bp = bp;
-    //         }
-    //     }
-    //     bp = NEXT_BLKP(bp);
-    // }
-    // if(flag == 1){ /* Best match*/
-    //     return best_bp;
-    // }
-    // return NULL;/* No fit block */
 }
 
 /*
@@ -288,16 +264,20 @@ static void place(void *bp, size_t asize)
 {
     size_t size = GET_SIZE(HDRP(bp));
     size_t rest = size - asize;
+    delete_node(bp);
     if(rest < (2*DSIZE)){ /* Not split*/
-       PUT(HDRP(bp), PACK(size, 1));
-       PUT(FTRP(bp), PACK(size, 1));
+        SET_ALLOC(HDRP(bp));
+        SET_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));/* Set next block's prev_alloc bit at header */
+        if(GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 0){    /* Next block is free block --> own the footer part */
+            SET_PREV_ALLOC(FTRP(NEXT_BLKP(bp)));
+        }
     }
     else{ /* Split */
-        PUT(HDRP(bp), PACK(asize, 1));
-        PUT(FTRP(bp), PACK(asize, 1));
+        PUT(HDRP(bp), PACK(asize, GET_PREV_ALLOC(HDRP(bp)), 1));
         bp = NEXT_BLKP(bp);
-        PUT(HDRP(bp), PACK(rest, 0));
-        PUT(FTRP(bp), PACK(rest, 0));
+        PUT(HDRP(bp), PACK(rest, 1, 0));
+        PUT(FTRP(bp), PACK(rest, 1, 0));
+        insert_node(bp);
     }
 }
 

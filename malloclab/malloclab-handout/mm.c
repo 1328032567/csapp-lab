@@ -222,7 +222,7 @@ void *mm_malloc(size_t size)
     if(size <= DSIZE)
         asize = 2*DSIZE;
     else
-        asize = DSIZE * ((size + (DSIZE) + (DSIZE - 1)) / DSIZE);
+        asize = DSIZE * ((size + (WSIZE) + (DSIZE - 1)) / DSIZE);
 
     /* Search the free list for a fit */
     if((bp = find_fit(asize)) != NULL) {
@@ -307,9 +307,10 @@ static void place(void *bp, size_t asize)
 void mm_free(void *bp)
 {
     size_t size = GET_SIZE(HDRP(bp));
+    int prev_alloc = GET_PREV_ALLOC(bp);
+    PUT(HDRP(bp), PACK(size, prev_alloc, 0));
+    PUT(FTRP(bp), PACK(size, prev_alloc, 0));
 
-    PUT(HDRP(bp), PACK(size, 0));
-    PUT(FTRP(bp), PACK(size, 0));
     coalesce(bp);
 }
 
@@ -334,8 +335,8 @@ static void *coalesce(void *bp)
     }
 
     else if (!prev_alloc && next_alloc) {       /* Case 3 */
-        delete_node(PREV_NODE(bp));
-        SET_PREV_FREE(HDRP(NEXT_NODE(bp)));
+        delete_node(GET_PREV_NODE(bp));
+        SET_PREV_FREE(HDRP(GET_NEXT_NODE(bp)));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, prev_prev_alloc, 0));
@@ -343,9 +344,9 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp); 
     }
     else if (!prev_alloc && !next_alloc) {      /* Case 4 */
-        delete_node(PREV_NODE(bp));
-        delete_node(NEXT_NODE(bp));
-        SET_PREV_FREE(HDRP(NEXT_NODE(NEXT_NODE(bp))));
+        delete_node(GET_PREV_NODE(bp));
+        delete_node(GET_NEXT_NODE(bp));
+        SET_PREV_FREE(HDRP(GET_NEXT_NODE(GET_NEXT_NODE(bp))));
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));

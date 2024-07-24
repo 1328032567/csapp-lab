@@ -62,7 +62,7 @@ team_t team = {
 /* Read the size and allocated fields from address p */
 #define GET_SIZE(p)         (GET(p) & ~0x7)     /* Sum of header, footer and payload */
 #define GET_ALLOC(p)        (GET(p) & 0x1)
-#define GET_PREV_ALLOC(p)   (GET(p) & 0x2)
+#define GET_PREV_ALLOC(p)   ((GET(p) & 0x2)>>1)
 
 /* Read the flag bit, and set the value from p */
 #define SET_ALLOC(p)            (GET(p) &= 0x1)
@@ -88,6 +88,9 @@ team_t team = {
 
 /* Define the number of the free_list */
 #define FREE_LIST_NUM 15
+
+/* Define bottom equals to base_address of heap */
+#define bottom (mem_heap_lo())
 
 /* Define gobal free list to store head pointer */
 static char **free_list;
@@ -121,13 +124,14 @@ static void *heap_listp;
  */
 int mm_init(void)
 {
+    puts("Initilize");
     /* Initialize free_list position */
     free_list = mem_heap_lo();
     for(int i = 0; i < FREE_LIST_NUM; i++){
         if((heap_listp = mem_sbrk(WSIZE)) == (void *)(-1))
             return -1;
         //different free_list[i] = mem_heap_lo();
-        free_list[i] = NULL;
+        free_list[i] = bottom;
     }
     /* Create the prologue header, footer and epilogue header at heap */
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
@@ -135,7 +139,7 @@ int mm_init(void)
     PUT(heap_listp, 0);                             /* Alignment padding */
     PUT(heap_listp + (1*WSIZE), PACK(DSIZE, 0, 1));    /* Prologue header */
     PUT(heap_listp + (2*WSIZE), PACK(DSIZE, 0, 1));    /* Prologue footer */
-    PUT(heap_listp + (3*WSIZE), PACK(0, 0, 1));        /* Epilogue header */
+    PUT(heap_listp + (3*WSIZE), PACK(0, 1, 1));        /* Epilogue header */
     heap_listp += (2*WSIZE);
 
     /* Extend the empty heap with a free block of CHUNKSIZE bytes */
@@ -149,6 +153,7 @@ int mm_init(void)
  */
 static void *extend_heap(size_t words)
 {
+    puts("Extend_heap.");
    char *bp;
    size_t size;
 
@@ -210,6 +215,7 @@ static int get_index(size_t size)
  */
 void *mm_malloc(size_t size)
 {
+    puts("Malloc");
     size_t asize;       /* Adjusted block size */
     size_t extendsize;  /* Amount to extend heap if no fit */
     char *bp;
@@ -243,12 +249,13 @@ void *mm_malloc(size_t size)
  */
 static void *find_fit(size_t asize)
 {
+    puts("Find_fit");
     /* First-fit search */
     void *ptr;  /* Point to the free block */
     size_t size;
     int index = get_index(asize);
     for(int i = index; i < FREE_LIST_NUM; i++){
-        for(ptr = free_list[i]; GET_NEXT_NODE(ptr) != NULL; ptr = GET_NEXT_NODE(ptr)){
+        for(ptr = free_list[i]; ptr != bottom; ptr = GET_NEXT_NODE(ptr)){
             size = GET_SIZE(HDRP(ptr));
             if(size >= asize)
                 return ptr;
@@ -262,6 +269,7 @@ static void *find_fit(size_t asize)
  */
 static void place(void *bp, size_t asize)
 {
+    puts("Place");
     size_t size = GET_SIZE(HDRP(bp));
     size_t rest = size - asize;
     delete_node(bp);
@@ -286,8 +294,9 @@ static void place(void *bp, size_t asize)
  */
 void mm_free(void *bp)
 {
+    puts("Free");
     size_t size = GET_SIZE(HDRP(bp));
-    int prev_alloc = GET_PREV_ALLOC(bp);
+    int prev_alloc = GET_PREV_ALLOC(HDRP(bp));
     PUT(HDRP(bp), PACK(size, prev_alloc, 0));
     PUT(FTRP(bp), PACK(size, prev_alloc, 0));
 
@@ -299,15 +308,18 @@ void mm_free(void *bp)
  */
 static void *coalesce(void *bp)
 {
-    size_t prev_alloc = GET_ALLOC(FTRP(PREV_BLKP(bp)));
+    puts("Coalesce");
+    size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) {             /* Case 1 */
-        SET_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));
+        puts("Coalesce 1.");
+        SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
     }
 
     else if (prev_alloc && !next_alloc) {       /* Case 2 */
+        puts("Coalesce 2.");
         delete_node(NEXT_BLKP(bp));
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 1, 0));
@@ -315,8 +327,9 @@ static void *coalesce(void *bp)
     }
 
     else if (!prev_alloc && next_alloc) {       /* Case 3 */
-        delete_node(GET_PREV_NODE(bp));
-        SET_PREV_FREE(HDRP(GET_NEXT_NODE(bp)));
+        puts("Coalesce 3.");
+        delete_node(PREV_BLKP(bp));
+        SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
         size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
         PUT(FTRP(bp), PACK(size, prev_prev_alloc, 0));
@@ -324,9 +337,10 @@ static void *coalesce(void *bp)
         bp = PREV_BLKP(bp); 
     }
     else if (!prev_alloc && !next_alloc) {      /* Case 4 */
+        puts("Coalesce 4.");
         delete_node(GET_PREV_NODE(bp));
         delete_node(GET_NEXT_NODE(bp));
-        SET_PREV_FREE(HDRP(GET_NEXT_NODE(GET_NEXT_NODE(bp))));
+        //SET_PREV_FREE(HDRP(GET_NEXT_NODE(GET_NEXT_NODE(bp))));
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
         size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
@@ -342,20 +356,28 @@ static void *coalesce(void *bp)
  */
 static void insert_node(void *bp)
 {
+    puts("Insert_node");
     size_t size = GET_SIZE(HDRP(bp));
     int index = get_index(size);
     char *newptr = bp;
     char *oldptr = free_list[index];
     free_list[index] = newptr;  /* Insert new node to the head of the list. */
 
-    if(oldptr == NULL){ /* free_list[index] point to tail */
+    if(oldptr == bottom){ /* free_list[index] point to tail */
+        puts("Insert 1");
         SET_PREV_POINTER(newptr, NULL);
         SET_NEXT_POINTER(newptr, NULL);
     }
     else{   /* Insert new node to the list. */
+        puts("Insert 2");
+        printf("bottom:%p\n", bottom);
+        printf("oldptr:%p\n", oldptr);
         SET_PREV_POINTER(newptr, NULL);
+        puts("1");
         SET_NEXT_POINTER(newptr, oldptr);
+        puts("2");
         SET_PREV_POINTER(oldptr, newptr);
+        puts("3");
     }
 }
 
@@ -364,19 +386,27 @@ static void insert_node(void *bp)
  */
 static void delete_node(void *bp)
 {
+    puts("Delete_node");
     size_t size = GET_SIZE(HDRP(bp));
     int index = get_index(size);
     char *prevptr = GET_PREV_NODE(bp);
     char *nextptr = GET_NEXT_NODE(bp);
 
-    if(prevptr == NULL){    /* Delete head node */
+    if(prevptr == bottom && nextptr == bottom){    /* Delete the node both head and tail */
+        puts("Delete 1");
+        free_list[index] = bottom;
+    }
+    else if(prevptr == bottom){    /* Delete head node */
+        puts("Delete 2");
         free_list[index] = nextptr;
         SET_PREV_POINTER(nextptr, NULL);
     }
-    else if(nextptr == NULL){   /* Delete tail node */
+    else if(nextptr == bottom){   /* Delete tail node */
+        puts("Delete 3");
         SET_NEXT_POINTER(prevptr, NULL);
     }
     else{   /* Delete normal node */
+        puts("Delete 4");
         SET_NEXT_POINTER(prevptr, nextptr);
         SET_PREV_POINTER(nextptr, prevptr);
     }
@@ -386,7 +416,6 @@ static void delete_node(void *bp)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
-    
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;

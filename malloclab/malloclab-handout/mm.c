@@ -79,8 +79,8 @@ team_t team = {
 #define PREV_BLKP(bp)   ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute address of next and previous nodes in the list*/
-#define NEXT_NODE(bp)   ((char *)((bp) + WSIZE))
-#define PREV_NODE(bp)   ((char *)(bp))
+#define NEXT_NODE(bp)   ((char *)(*(unsigned*)(bp + WSIZE)))
+#define PREV_NODE(bp)   ((char *)(*(unsigned*)(bp)))
 
 /* Given block ptr bp, set previous pointer and next pointer address */
 #define SET_NEXT_POINTER(bp, addr)     (*(unsigned *)((bp) + WSIZE) = (unsigned int)(addr))
@@ -251,7 +251,7 @@ static void *find_fit(size_t asize)
     size_t size;
     int index = get_index(asize);
     for(int i = index; i < FREE_LIST_NUM; i++){
-        for(ptr = free_list[i]; ptr != bottom; ptr = GET_NEXT_NODE(ptr)){
+        for(ptr = free_list[i]; ptr != NULL; ptr = NEXT_NODE(ptr)){
             size = GET_SIZE(HDRP(ptr));
             if(size >= asize)
                 return ptr;
@@ -360,7 +360,7 @@ static void *coalesce(void *bp)
         int prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
-        bp = PREV_BLKP(bp)
+        bp = PREV_BLKP(bp);
     }
     insert_node(bp);
     return bp;
@@ -376,23 +376,33 @@ static void insert_node(void *bp)
     int index = get_index(size);
     char *newptr = bp;
     char *oldptr = free_list[index];
-    free_list[index] = newptr;  /* Insert new node to the head of the list. */
+    // free_list[index] = newptr;  /* Insert new node to the head of the list. */
 
-    if(oldptr == bottom){ /* free_list[index] point to tail */
-        puts("Insert 1");
+    // if(oldptr == bottom){ /* free_list[index] point to tail */
+    //     puts("Insert 1");
+    //     SET_PREV_POINTER(newptr, NULL);
+    //     SET_NEXT_POINTER(newptr, NULL);
+    // }
+    // else{   /* Insert new node to the list. */
+    //     puts("Insert 2");
+    //     printf("bottom:%p\n", bottom);
+    //     printf("oldptr:%p\n", oldptr);
+    //     SET_PREV_POINTER(newptr, NULL);
+    //     puts("Way 1");
+    //     SET_NEXT_POINTER(newptr, oldptr);
+    //     puts("Way 2");
+    //     SET_PREV_POINTER(oldptr, newptr);
+    //     puts("Way 3");
+    // }
+    if(oldptr == NULL){ /* free_list[index] point to tail*/
+        oldptr = newptr;
         SET_PREV_POINTER(newptr, NULL);
         SET_NEXT_POINTER(newptr, NULL);
     }
-    else{   /* Insert new node to the list. */
-        puts("Insert 2");
-        printf("bottom:%p\n", bottom);
-        printf("oldptr:%p\n", oldptr);
+    else{
         SET_PREV_POINTER(newptr, NULL);
-        puts("Way 1");
         SET_NEXT_POINTER(newptr, oldptr);
-        puts("Way 2");
-        SET_PREV_POINTER(oldptr, newptr);
-        puts("Way 3");
+        oldptr = newptr;
     }
 }
 
@@ -426,16 +436,22 @@ static void delete_node(void *bp)
     //     SET_PREV_POINTER(nextptr, prevptr);
     // }
     if(prevptr == NULL && nextptr == NULL){ /* Delete the both head and tail node */
+        puts("Delete 1");
         free_list[index] = NULL;
     }
     else if(prevptr == NULL){    /* Delete head node */
+        puts("Delete 2");
         free_list[index] = nextptr;
         SET_PREV_POINTER(nextptr, NULL);
     }
     else if(nextptr == NULL){   /* Delete tail node */
+        puts("Delete 3");
         SET_NEXT_POINTER(prevptr, nextptr);
     }
     else{   /* Delete normal node */
+        puts("Delete 4");
+        printf("nextptr:%p.\n", nextptr);
+        printf("prevptr:%p.\n", prevptr);
         SET_PREV_POINTER(nextptr, prevptr);
         SET_NEXT_POINTER(prevptr, nextptr);
     }

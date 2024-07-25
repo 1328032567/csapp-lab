@@ -373,11 +373,11 @@ static void insert_node(void *bp)
         printf("bottom:%p\n", bottom);
         printf("oldptr:%p\n", oldptr);
         SET_PREV_POINTER(newptr, NULL);
-        puts("1");
+        puts("Way 1");
         SET_NEXT_POINTER(newptr, oldptr);
-        puts("2");
+        puts("Way 2");
         SET_PREV_POINTER(oldptr, newptr);
-        puts("3");
+        puts("Way 3");
     }
 }
 

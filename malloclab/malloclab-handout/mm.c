@@ -34,6 +34,11 @@ team_t team = {
     /* Second member's email address (leave blank if none) */
     ""
 };
+/* Debug mode */
+#define debug
+
+/* Print debug information */
+#define print
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -75,19 +80,22 @@ team_t team = {
 #define FTRP(bp)        ((char *)(bp) + GET_SIZE(HDRP(bp)) - DSIZE)
 
 /* Given block ptr bp, compute address of next and previous blocks */
-#define NEXT_BLKP(bp)   ((char *)(bp) + GET_SIZE(((char *)(bp)))) 
+#define NEXT_BLKP(bp)   ((char *)(bp) + GET_SIZE((HDRP((char *)(bp))))) 
 #define PREV_BLKP(bp)   ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute address of next and previous nodes in the list*/
-#define NEXT_NODE(bp)   ((char *)(*(unsigned*)(bp + WSIZE)))
-#define PREV_NODE(bp)   ((char *)(*(unsigned*)(bp)))
+#define PREV_NODE(bp)       ((char *)(mem_heap_lo() + *(unsigned*)(bp)))
+#define NEXT_NODE(bp)       ((char *)(mem_heap_lo() + *(unsigned*)(bp + WSIZE)))
 
 /* Given block ptr bp, set previous pointer and next pointer address */
-#define SET_NEXT_POINTER(bp, addr)     (*(unsigned *)((bp) + WSIZE) = (unsigned int)(addr))
-#define SET_PREV_POINTER(bp, addr)     (*(unsigned *)(bp) = (unsigned int)(addr))
+#define SET_PREV_POINTER(bp,val)   (*(unsigned*)(bp) = ((unsigned)(long)val))
+#define SET_NEXT_POINTER(bp,val)   (*(unsigned*)((char *)bp + WSIZE) = ((unsigned)(long)val))
 
 /* Define the number of the free_list */
 #define FREE_LIST_NUM 15
+
+/* Define heap bottom equals to mem_heap_lo() */
+#define bottom (mem_heap_lo())
 
 /* Define gobal free list to store head pointer */
 static char **free_list;
@@ -121,13 +129,15 @@ static void *heap_listp;
  */
 int mm_init(void)
 {
+    #ifdef debug
     puts("Initilize");
+    #endif
     /* Initialize free_list position */
     free_list = mem_heap_lo();
     for(int i = 0; i < FREE_LIST_NUM; i++){
         if((heap_listp = mem_sbrk(DSIZE)) == (void *)(-1))
             return -1;
-        free_list[i] = NULL;
+        free_list[i] = mem_heap_lo();
     }
     /* Create the prologue header, footer and epilogue header at heap */
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
@@ -149,7 +159,9 @@ int mm_init(void)
  */
 static void *extend_heap(size_t words)
 {
+    #ifdef debug
     puts("Extend_heap.");
+    #endif
     char *bp;
     size_t size;
 
@@ -211,7 +223,9 @@ static int get_index(size_t size)
  */
 void *mm_malloc(size_t size)
 {
+    #ifdef debug
     puts("Malloc");
+    #endif
     size_t asize;       /* Adjusted block size */
     size_t extendsize;  /* Amount to extend heap if no fit */
     char *bp;
@@ -245,13 +259,22 @@ void *mm_malloc(size_t size)
  */
 static void *find_fit(size_t asize)
 {
+    #ifdef debug
     puts("Find_fit");
+    #endif
     /* First-fit search */
     void *ptr;  /* Point to the free block */
     size_t size;
     int index = get_index(asize);
-    for(int i = index; i < FREE_LIST_NUM; i++){
-        for(ptr = free_list[i]; ptr != NULL; ptr = NEXT_NODE(ptr)){
+    // for(int i = index; i < FREE_LIST_NUM; i++){
+    //     for(ptr = free_list[i]; ptr != bottom; ptr = NEXT_NODE(ptr)){
+    //         size = GET_SIZE(HDRP(ptr));
+    //         if(size >= asize)
+    //             return ptr;
+    //     }
+    // }
+    for(int i = index; i < FREE_LIST_NUM; i++){ /* Traverse free_list */
+        for(ptr = free_list[i]; ptr != bottom; ptr = NEXT_NODE(ptr)){
             size = GET_SIZE(HDRP(ptr));
             if(size >= asize)
                 return ptr;
@@ -265,7 +288,9 @@ static void *find_fit(size_t asize)
  */
 static void place(void *bp, size_t asize)
 {
+    #ifdef debug
     puts("Place");
+    #endif
     size_t size = GET_SIZE(HDRP(bp));
     size_t rest = size - asize;
     delete_node(bp);
@@ -290,7 +315,9 @@ static void place(void *bp, size_t asize)
  */
 void mm_free(void *bp)
 {
+    #ifdef debug
     puts("Free");
+    #endif
     size_t size = GET_SIZE(HDRP(bp));
     int prev_alloc = GET_PREV_ALLOC(HDRP(bp));
     PUT(HDRP(bp), PACK(size, prev_alloc, 0));
@@ -304,19 +331,25 @@ void mm_free(void *bp)
  */
 static void *coalesce(void *bp)
 {
+    #ifdef debug
     puts("Coalesce");
+    #endif
     size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLKP(bp)));
     size_t size = GET_SIZE(HDRP(bp));
 
     if (prev_alloc && next_alloc) {             /* Case 1 */
+        #ifdef debug
         puts("Coalesce 1.");
+        #endif
         // SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
         SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
     }
 
     else if (prev_alloc && !next_alloc) {       /* Case 2 */
+        #ifdef debug
         puts("Coalesce 2.");
+        #endif
         // delete_node(NEXT_BLKP(bp));
         // size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         // PUT(HDRP(bp), PACK(size, 1, 0));
@@ -328,7 +361,9 @@ static void *coalesce(void *bp)
     }
 
     else if (!prev_alloc && next_alloc) {       /* Case 3 */
+        #ifdef debug
         puts("Coalesce 3.");
+        #endif
         // delete_node(PREV_BLKP(bp));
         // SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
         // size += GET_SIZE(HDRP(PREV_BLKP(bp)));
@@ -339,13 +374,15 @@ static void *coalesce(void *bp)
         delete_node(PREV_BLKP(bp));
         SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
-        int prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
+        size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
         PUT(FTRP(bp), PACK(size, prev_prev_alloc, 0));
         bp = PREV_BLKP(bp);
     }
     else if (!prev_alloc && !next_alloc) {      /* Case 4 */
+        #ifdef debug
         puts("Coalesce 4.");
+        #endif
         // delete_node(PREV_BLKP(bp));
         // delete_node(NEXT_BLKP(bp));
         // SET_PREV_FREE(HDRP(NEXT_BLKP(NEXT_BLKP(bp))));
@@ -371,7 +408,9 @@ static void *coalesce(void *bp)
  */
 static void insert_node(void *bp)
 {
+    #ifdef debug
     puts("Insert_node");
+    #endif
     size_t size = GET_SIZE(HDRP(bp));
     int index = get_index(size);
     char *newptr = bp;
@@ -394,12 +433,18 @@ static void insert_node(void *bp)
     //     SET_PREV_POINTER(oldptr, newptr);
     //     puts("Way 3");
     // }
-    if(oldptr == NULL){ /* free_list[index] point to tail*/
+    if(oldptr == bottom){ /* free_list[index] point to tail*/
+        #ifdef debug
+        puts("Insert 1");
+        #endif
         oldptr = newptr;
         SET_PREV_POINTER(newptr, NULL);
         SET_NEXT_POINTER(newptr, NULL);
     }
     else{
+        #ifdef debug
+        puts("Insert 2");
+        #endif
         SET_PREV_POINTER(newptr, NULL);
         SET_NEXT_POINTER(newptr, oldptr);
         oldptr = newptr;
@@ -411,7 +456,9 @@ static void insert_node(void *bp)
  */
 static void delete_node(void *bp)
 {
+    #ifdef debug
     puts("Delete_node");
+    #endif
     size_t size = GET_SIZE(HDRP(bp));
     int index = get_index(size);
     char *prevptr = PREV_NODE(bp);
@@ -435,23 +482,29 @@ static void delete_node(void *bp)
     //     SET_NEXT_POINTER(prevptr, nextptr);
     //     SET_PREV_POINTER(nextptr, prevptr);
     // }
-    if(prevptr == NULL && nextptr == NULL){ /* Delete the both head and tail node */
+    if(prevptr == bottom && nextptr == bottom){ /* Delete the both head and tail node */
+        #ifdef debug
         puts("Delete 1");
-        free_list[index] = NULL;
+        #endif
+        free_list[index] = bottom;
     }
-    else if(prevptr == NULL){    /* Delete head node */
+    else if(prevptr == bottom){    /* Delete head node */
+        #ifdef debug
         puts("Delete 2");
+        #endif
         free_list[index] = nextptr;
         SET_PREV_POINTER(nextptr, NULL);
     }
-    else if(nextptr == NULL){   /* Delete tail node */
+    else if(nextptr == bottom){   /* Delete tail node */
+        #ifdef debug
         puts("Delete 3");
+        #endif
         SET_NEXT_POINTER(prevptr, nextptr);
     }
     else{   /* Delete normal node */
+        #ifdef debug
         puts("Delete 4");
-        printf("nextptr:%p.\n", nextptr);
-        printf("prevptr:%p.\n", prevptr);
+        #endif
         SET_PREV_POINTER(nextptr, prevptr);
         SET_NEXT_POINTER(prevptr, nextptr);
     }
@@ -461,6 +514,9 @@ static void delete_node(void *bp)
  */
 void *mm_realloc(void *ptr, size_t size)
 {
+    #ifdef debug
+    puts("Realloc");
+    #endif
     void *oldptr = ptr;
     void *newptr;
     size_t copySize;

@@ -35,7 +35,7 @@ team_t team = {
     ""
 };
 /* Debug mode */
-#define debug
+// #define debug
 
 /* Print debug information */
 #define print
@@ -294,15 +294,31 @@ static void place(void *bp, size_t asize)
     size_t size = GET_SIZE(HDRP(bp));
     size_t rest = size - asize;
     delete_node(bp);
-    if(rest < (2*DSIZE)){ /* Not split*/
+    // if(rest < (2*DSIZE)){ /* Not split*/
+    //     SET_ALLOC(HDRP(bp));
+    //     SET_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));/* Set next block's prev_alloc bit at header */
+    //     if(GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 0){    /* Next block is free block --> own the footer part */
+    //         SET_PREV_ALLOC(FTRP(NEXT_BLKP(bp)));
+    //     }
+    // }
+    // else{ /* Split */
+    //     PUT(HDRP(bp), PACK(asize, GET_PREV_ALLOC(HDRP(bp)), 1));
+    //     bp = NEXT_BLKP(bp);
+    //     PUT(HDRP(bp), PACK(rest, 1, 0));
+    //     PUT(FTRP(bp), PACK(rest, 1, 0));
+    //     insert_node(bp);
+    // }
+    if(rest < (2*DSIZE)){   /* Not split */
         SET_ALLOC(HDRP(bp));
-        SET_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));/* Set next block's prev_alloc bit at header */
-        if(GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 0){    /* Next block is free block --> own the footer part */
+        SET_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));
+        if(GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 0){    /* Next block is free and has the footer */
             SET_PREV_ALLOC(FTRP(NEXT_BLKP(bp)));
         }
     }
-    else{ /* Split */
+    else{   /* Split */
+        /* Set allocate block header */
         PUT(HDRP(bp), PACK(asize, GET_PREV_ALLOC(HDRP(bp)), 1));
+        /* Set rest split block header and footer */ 
         bp = NEXT_BLKP(bp);
         PUT(HDRP(bp), PACK(rest, 1, 0));
         PUT(FTRP(bp), PACK(rest, 1, 0));

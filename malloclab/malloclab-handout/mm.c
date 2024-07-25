@@ -53,7 +53,7 @@ team_t team = {
 
 /* Pack a size and allocated bit into a word */
 /* size -> header + payload + footer, prev_alloc -> previous block whether allocated, alloc -> block whether allocated*/
-#define PACK(size, prev_alloc, alloc)   ((size) | (prev_alloc)<<1 | (alloc))
+#define PACK(size, prev_alloc, alloc)   ((size) | ((prev_alloc)<<1) | (alloc))
 
 /* Read and write a word at address p */
 #define GET(p)          (*(unsigned int *)(p))
@@ -79,12 +79,12 @@ team_t team = {
 #define PREV_BLKP(bp)   ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute address of next and previous nodes in the list*/
-#define NEXT_NODE(bp)   (*(unsigned int *)((bp) + WSIZE))
-#define PREV_NODE(bp)   (*(unsigned int *)(bp))
+#define NEXT_NODE(bp)   ((char *)((bp) + WSIZE))
+#define PREV_NODE(bp)   ((char *)(bp))
 
 /* Given block ptr bp, set previous pointer and next pointer address */
-#define SET_NEXT_POINTER(bp, addr)     (*(unsigned int *)((char *)(bp) + WSIZE) = (unsigned int)(addr))
-#define SET_PREV_POINTER(bp, addr)     (*(unsigned int *)(bp) = (unsigned int)(addr))
+#define SET_NEXT_POINTER(bp, addr)     (*(unsigned *)((bp) + WSIZE) = (unsigned int)(addr))
+#define SET_PREV_POINTER(bp, addr)     (*(unsigned *)(bp) = (unsigned int)(addr))
 
 /* Define the number of the free_list */
 #define FREE_LIST_NUM 15
@@ -125,7 +125,7 @@ int mm_init(void)
     /* Initialize free_list position */
     free_list = mem_heap_lo();
     for(int i = 0; i < FREE_LIST_NUM; i++){
-        if((heap_listp = mem_sbrk(WSIZE)) == (void *)(-1))
+        if((heap_listp = mem_sbrk(DSIZE)) == (void *)(-1))
             return -1;
         free_list[i] = NULL;
     }
@@ -150,22 +150,22 @@ int mm_init(void)
 static void *extend_heap(size_t words)
 {
     puts("Extend_heap.");
-   char *bp;
-   size_t size;
+    char *bp;
+    size_t size;
 
-   /* Allocate an even number of words to maintain alignment */
-   size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
-   if((long)(bp = mem_sbrk(size)) == -1)
-       return NULL;
+    /* Allocate an even number of words to maintain alignment */
+    size = (words % 2) ? (words+1) * WSIZE : words * WSIZE;
+    if((long)(bp = mem_sbrk(size)) == -1)
+        return NULL;
 
-   /* Initialize free block header/footer and the epilogue header */
-   size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
-   PUT(HDRP(bp), PACK(size, prev_alloc, 0));    /* New free block header */
-   PUT(FTRP(bp), PACK(size, prev_alloc, 0));    /* New free block footer */
-   PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 0, 1));    /* New epilogue header */
+    /* Initialize free block header/footer and the epilogue header */
+    size_t prev_alloc = GET_PREV_ALLOC(HDRP(bp));
+    PUT(HDRP(bp), PACK(size, prev_alloc, 0));   /* New free block header */
+    PUT(FTRP(bp), PACK(size, prev_alloc, 0));   /* New free block footer */
+    PUT(HDRP(NEXT_BLKP(bp)), PACK(0, 0, 1));    /* New epilogue header */
 
-   /* Coalesce if the previous block was free */
-   return coalesce(bp);
+    /* Coalesce if the previous block was free */
+    return coalesce(bp);
 }
 
 /*
@@ -311,11 +311,16 @@ static void *coalesce(void *bp)
 
     if (prev_alloc && next_alloc) {             /* Case 1 */
         puts("Coalesce 1.");
+        // SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
         SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
     }
 
     else if (prev_alloc && !next_alloc) {       /* Case 2 */
         puts("Coalesce 2.");
+        // delete_node(NEXT_BLKP(bp));
+        // size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        // PUT(HDRP(bp), PACK(size, 1, 0));
+        // PUT(FTRP(bp), PACK(size, 1, 0));
         delete_node(NEXT_BLKP(bp));
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 1, 0));
@@ -324,24 +329,38 @@ static void *coalesce(void *bp)
 
     else if (!prev_alloc && next_alloc) {       /* Case 3 */
         puts("Coalesce 3.");
+        // delete_node(PREV_BLKP(bp));
+        // SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
+        // size += GET_SIZE(HDRP(PREV_BLKP(bp)));
+        // size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
+        // PUT(FTRP(bp), PACK(size, prev_prev_alloc, 0));
+        // PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
+        // bp = PREV_BLKP(bp);
         delete_node(PREV_BLKP(bp));
         SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
-        size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
-        PUT(FTRP(bp), PACK(size, prev_prev_alloc, 0));
+        int prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
-        bp = PREV_BLKP(bp); 
+        PUT(FTRP(bp), PACK(size, prev_prev_alloc, 0));
+        bp = PREV_BLKP(bp);
     }
     else if (!prev_alloc && !next_alloc) {      /* Case 4 */
         puts("Coalesce 4.");
-        delete_node(GET_PREV_NODE(bp));
-        delete_node(GET_NEXT_NODE(bp));
-        //SET_PREV_FREE(HDRP(GET_NEXT_NODE(GET_NEXT_NODE(bp))));
-        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
-        size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
+        // delete_node(PREV_BLKP(bp));
+        // delete_node(NEXT_BLKP(bp));
+        // SET_PREV_FREE(HDRP(NEXT_BLKP(NEXT_BLKP(bp))));
+        // size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
+        // size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
+        // PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
+        // PUT(FTRP(NEXT_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
+        // bp = PREV_BLKP(bp);
+        delete_node(PREV_BLKP(bp));
+        delete_node(NEXT_BLKP(bp));
+        size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(HDRP(NEXT_BLKP(bp)));
+        int prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
         PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
         PUT(FTRP(NEXT_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
-        bp = PREV_BLKP(bp);
+        bp = PREV_BLKP(bp)
     }
     insert_node(bp);
     return bp;
@@ -385,26 +404,40 @@ static void delete_node(void *bp)
     puts("Delete_node");
     size_t size = GET_SIZE(HDRP(bp));
     int index = get_index(size);
-    char *prevptr = GET_PREV_NODE(bp);
-    char *nextptr = GET_NEXT_NODE(bp);
+    char *prevptr = PREV_NODE(bp);
+    char *nextptr = NEXT_NODE(bp);
 
-    if(prevptr == bottom && nextptr == bottom){    /* Delete the node both head and tail */
-        puts("Delete 1");
-        free_list[index] = bottom;
+    // if(prevptr == NULL && nextptr == NULL){    /* Delete the node both head and tail */
+    //     puts("Delete 1");
+    //     free_list[index] = NULL;
+    // }
+    // else if(prevptr == NULL){    /* Delete head node */
+    //     puts("Delete 2");
+    //     free_list[index] = nextptr;
+    //     SET_PREV_POINTER(nextptr, NULL);
+    // }
+    // else if(nextptr == NULL){   /* Delete tail node */
+    //     puts("Delete 3");
+    //     SET_NEXT_POINTER(prevptr, NULL);
+    // }
+    // else{   /* Delete normal node */
+    //     puts("Delete 4");
+    //     SET_NEXT_POINTER(prevptr, nextptr);
+    //     SET_PREV_POINTER(nextptr, prevptr);
+    // }
+    if(prevptr == NULL && nextptr == NULL){ /* Delete the both head and tail node */
+        free_list[index] = NULL;
     }
-    else if(prevptr == bottom){    /* Delete head node */
-        puts("Delete 2");
+    else if(prevptr == NULL){    /* Delete head node */
         free_list[index] = nextptr;
         SET_PREV_POINTER(nextptr, NULL);
     }
-    else if(nextptr == bottom){   /* Delete tail node */
-        puts("Delete 3");
-        SET_NEXT_POINTER(prevptr, NULL);
+    else if(nextptr == NULL){   /* Delete tail node */
+        SET_NEXT_POINTER(prevptr, nextptr);
     }
     else{   /* Delete normal node */
-        puts("Delete 4");
-        SET_NEXT_POINTER(prevptr, nextptr);
         SET_PREV_POINTER(nextptr, prevptr);
+        SET_NEXT_POINTER(prevptr, nextptr);
     }
 }
 /*

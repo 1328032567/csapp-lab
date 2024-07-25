@@ -79,8 +79,8 @@ team_t team = {
 #define PREV_BLKP(bp)   ((char *)(bp) - GET_SIZE(((char *)(bp) - DSIZE)))
 
 /* Given block ptr bp, compute address of next and previous nodes in the list*/
-#define GET_NEXT_NODE(bp)   ((char *)(mem_heap_lo() + *(unsigned int *)((bp) + WSIZE)))
-#define GET_PREV_NODE(bp)   ((char *)(mem_heap_lo() + *(unsigned int *)(bp)))
+#define NEXT_NODE(bp)   (*(unsigned int *)((bp) + WSIZE))
+#define PREV_NODE(bp)   (*(unsigned int *)(bp))
 
 /* Given block ptr bp, set previous pointer and next pointer address */
 #define SET_NEXT_POINTER(bp, addr)     (*(unsigned int *)((char *)(bp) + WSIZE) = (unsigned int)(addr))
@@ -88,9 +88,6 @@ team_t team = {
 
 /* Define the number of the free_list */
 #define FREE_LIST_NUM 15
-
-/* Define bottom equals to base_address of heap */
-#define bottom (mem_heap_lo())
 
 /* Define gobal free list to store head pointer */
 static char **free_list;
@@ -130,8 +127,7 @@ int mm_init(void)
     for(int i = 0; i < FREE_LIST_NUM; i++){
         if((heap_listp = mem_sbrk(WSIZE)) == (void *)(-1))
             return -1;
-        //different free_list[i] = mem_heap_lo();
-        free_list[i] = bottom;
+        free_list[i] = NULL;
     }
     /* Create the prologue header, footer and epilogue header at heap */
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)

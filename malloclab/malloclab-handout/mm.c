@@ -70,9 +70,9 @@ team_t team = {
 #define GET_PREV_ALLOC(p)   ((GET(p) & 0x2)>>1)
 
 /* Read the flag bit, and set the value from p */
-#define SET_ALLOC(p)            (GET(p) &= 0x1)
+#define SET_ALLOC(p)            (GET(p) |= 0x1)
 #define SET_FREE(p)             (GET(p) &= ~0x1)
-#define SET_PREV_ALLOC(p)       (GET(p) &= 0x2)
+#define SET_PREV_ALLOC(p)       (GET(p) |= 0x2)
 #define SET_PREV_FREE(p)        (GET(p) &= ~0x2)
 
 /* Given block ptr bp, compute address of its header and footer */
@@ -99,6 +99,7 @@ team_t team = {
 
 /* Define gobal free list to store head pointer */
 static char **free_list;
+
 /* Additional Functions*/
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
@@ -114,6 +115,7 @@ static size_t adjust_alloc_size(size_t size);
 
 static int mm_check(void);
 static void mm_printfreelist(void);
+static void mm_printheap(void);
 /* Define a global variable to point to the end of prologue block */
 static void *heap_listp;
 
@@ -184,43 +186,6 @@ static void *extend_heap(size_t words)
     return coalesce(bp);
 }
 
-/*
- * get_index - get free_list index by free block size.
- */
-static int get_index(size_t size)
-{
-    /* Judge the range of size, and return list index */
-    if(size > 0 && size <= 24)
-        return 0;
-    else if(size <= 32)
-        return 1;
-    else if(size <= 64)
-        return 2;
-    else if(size <= 80)
-        return 3;
-    else if(size <= 120)
-        return 4;
-    else if(size <= 240)
-        return 5;
-    else if(size <= 480)
-        return 6;
-    else if(size <= 960)
-        return 7;
-    else if(size <= 1920)
-        return 8;
-    else if(size <= 3840)
-        return 9;
-    else if(size <= 7680)
-        return 10;
-    else if(size <= 15360)
-        return 11;
-    else if(size <= 30720)
-        return 12;
-    else if(size <= 61440)
-        return 13;
-    else 
-        return 14;
-}
 /* 
  * mm_malloc - Allocate a block by incrementing the brk pointer.
  *     Always allocate a block whose size is a multiple of the alignment.
@@ -228,9 +193,12 @@ static int get_index(size_t size)
 void *mm_malloc(size_t size)
 {
     #ifdef debug
-    puts("Malloc");
-    // puts("Before");
-    // mm_check();
+    puts("\nMalloc");
+        #ifdef print
+        puts("Before");
+        mm_check();
+        printf("Malloc Size:%u\n", (unsigned)size);
+        #endif
     #endif
     size_t asize;       /* Adjusted block size */
     size_t extendsize;  /* Amount to extend heap if no fit */
@@ -247,9 +215,22 @@ void *mm_malloc(size_t size)
     else
         asize = DSIZE * ((size + (WSIZE) + (DSIZE - 1)) / DSIZE);
 
+    #ifdef debug
+        #ifdef print
+        printf("Actual Size:%u\n", (unsigned)asize);
+        #endif
+    #endif
     /* Search the free list for a fit */
     if((bp = find_fit(asize)) != NULL) {
         place(bp, asize);
+
+    #ifdef debug
+        #ifdef print
+        puts("After");
+        mm_check();
+        #endif
+    #endif
+
         return bp;
     }
 
@@ -260,60 +241,13 @@ void *mm_malloc(size_t size)
     place(bp, asize);
 
     #ifdef debug
-    // puts("After");
-    // mm_check();
+        #ifdef print
+        puts("After");
+        mm_check();
+        #endif
     #endif
 
     return bp;
-}
-
-/*
- * mm_check - check the correctness of free list and allocated blocks.
- */
-static int mm_check(void)
-{
-    mm_printfreelist();
-    return 0;
-}
-
-/*
- * mm_printfresslist - print list of free nodes.
- */
-static void mm_printfreelist(void)
-{
-    void *bp;
-    volatile size_t size;
-    for(int i = 0; i < FREE_LIST_NUM; i++){
-        int j = 0;
-        printf("List[%d]:", i);
-        for(bp = free_list[i]; bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
-            size = GET_SIZE(HDRP(bp));
-            if(j++ < 15)
-                printf("%u-->", (unsigned)size);
-        }
-        printf("\n");
-    }
-}
-
-/*
- * adjust_alloc_size - adjust allocated block size in order to get higher score of 'space utilization'.
- */
-static size_t adjust_alloc_size(size_t size) {
-    // freeciv.rep
-    if (size >= 120 && size < 128) {
-        return 128;
-    }
-    // binary.rep
-    if (size >= 448 && size < 512) {
-        return 512;
-    }
-    if (size >= 1000 && size < 1024) {
-        return 1024;
-    }
-    if (size >= 2000 && size < 2048) {
-        return 2048;
-    }
-    return size;
 }
 
 /*
@@ -328,13 +262,7 @@ static void *find_fit(size_t asize)
     void *ptr;  /* Point to the free block */
     size_t size;
     int index = get_index(asize);
-    // for(int i = index; i < FREE_LIST_NUM; i++){
-    //     for(ptr = free_list[i]; ptr != bottom; ptr = NEXT_NODE(ptr)){
-    //         size = GET_SIZE(HDRP(ptr));
-    //         if(size >= asize)
-    //             return ptr;
-    //     }
-    // }
+
     for(int i = index; i < FREE_LIST_NUM; i++){ /* Traverse free_list */
         for(ptr = free_list[i]; ptr != bottom; ptr = NEXT_NODE(ptr)){
             size = GET_SIZE(HDRP(ptr));
@@ -356,21 +284,10 @@ static void place(void *bp, size_t asize)
     size_t size = GET_SIZE(HDRP(bp));
     size_t rest = size - asize;
     delete_node(bp);
-    // if(rest < (2*DSIZE)){ /* Not split*/
-    //     SET_ALLOC(HDRP(bp));
-    //     SET_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));/* Set next block's prev_alloc bit at header */
-    //     if(GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 0){    /* Next block is free block --> own the footer part */
-    //         SET_PREV_ALLOC(FTRP(NEXT_BLKP(bp)));
-    //     }
-    // }
-    // else{ /* Split */
-    //     PUT(HDRP(bp), PACK(asize, GET_PREV_ALLOC(HDRP(bp)), 1));
-    //     bp = NEXT_BLKP(bp);
-    //     PUT(HDRP(bp), PACK(rest, 1, 0));
-    //     PUT(FTRP(bp), PACK(rest, 1, 0));
-    //     insert_node(bp);
-    // }
     if(rest < (2*DSIZE)){   /* Not split */
+        #ifdef debug
+        puts("Place 1");
+        #endif
         SET_ALLOC(HDRP(bp));
         SET_PREV_ALLOC(HDRP(NEXT_BLKP(bp)));
         if(GET_ALLOC(HDRP(NEXT_BLKP(bp))) == 0){    /* Next block is free and has the footer */
@@ -378,6 +295,9 @@ static void place(void *bp, size_t asize)
         }
     }
     else{   /* Split */
+        #ifdef debug
+        puts("Place 2");
+        #endif
         /* Set allocate block header */
         PUT(HDRP(bp), PACK(asize, GET_PREV_ALLOC(HDRP(bp)), 1));
         /* Set rest split block header and footer */ 
@@ -420,7 +340,6 @@ static void *coalesce(void *bp)
         #ifdef debug
         puts("Coalesce 1.");
         #endif
-        // SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
         SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
     }
 
@@ -428,10 +347,6 @@ static void *coalesce(void *bp)
         #ifdef debug
         puts("Coalesce 2.");
         #endif
-        // delete_node(NEXT_BLKP(bp));
-        // size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
-        // PUT(HDRP(bp), PACK(size, 1, 0));
-        // PUT(FTRP(bp), PACK(size, 1, 0));
         delete_node(NEXT_BLKP(bp));
         size += GET_SIZE(HDRP(NEXT_BLKP(bp)));
         PUT(HDRP(bp), PACK(size, 1, 0));
@@ -442,13 +357,6 @@ static void *coalesce(void *bp)
         #ifdef debug
         puts("Coalesce 3.");
         #endif
-        // delete_node(PREV_BLKP(bp));
-        // SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
-        // size += GET_SIZE(HDRP(PREV_BLKP(bp)));
-        // size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
-        // PUT(FTRP(bp), PACK(size, prev_prev_alloc, 0));
-        // PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
-        // bp = PREV_BLKP(bp);
         delete_node(PREV_BLKP(bp));
         SET_PREV_FREE(HDRP(NEXT_BLKP(bp)));
         size += GET_SIZE(HDRP(PREV_BLKP(bp)));
@@ -461,14 +369,6 @@ static void *coalesce(void *bp)
         #ifdef debug
         puts("Coalesce 4.");
         #endif
-        // delete_node(PREV_BLKP(bp));
-        // delete_node(NEXT_BLKP(bp));
-        // SET_PREV_FREE(HDRP(NEXT_BLKP(NEXT_BLKP(bp))));
-        // size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(FTRP(NEXT_BLKP(bp)));
-        // size_t prev_prev_alloc = GET_PREV_ALLOC(HDRP(PREV_BLKP(bp)));
-        // PUT(HDRP(PREV_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
-        // PUT(FTRP(NEXT_BLKP(bp)), PACK(size, prev_prev_alloc, 0));
-        // bp = PREV_BLKP(bp);
         delete_node(PREV_BLKP(bp));
         delete_node(NEXT_BLKP(bp));
         size += GET_SIZE(HDRP(PREV_BLKP(bp))) + GET_SIZE(HDRP(NEXT_BLKP(bp)));
@@ -493,12 +393,12 @@ static void insert_node(void *bp)
     int index = get_index(size);
     char *newptr = bp;
     char *oldptr = free_list[index];
+    free_list[index] = newptr;
 
     if(oldptr == bottom){ /* free_list[index] point to tail*/
         #ifdef debug
         puts("Insert 1");
         #endif
-        oldptr = newptr;
         SET_PREV_POINTER(newptr, NULL);
         SET_NEXT_POINTER(newptr, NULL);
     }
@@ -507,8 +407,8 @@ static void insert_node(void *bp)
         puts("Insert 2");
         #endif
         SET_PREV_POINTER(newptr, NULL);
-        SET_NEXT_POINTER(newptr, oldptr);
-        oldptr = newptr;
+        SET_NEXT_POINTER(newptr, *(unsigned *)oldptr);
+        SET_PREV_POINTER(oldptr, *(unsigned *)newptr);
     }
 }
 
@@ -542,14 +442,14 @@ static void delete_node(void *bp)
         #ifdef debug
         puts("Delete 3");
         #endif
-        SET_NEXT_POINTER(prevptr, nextptr);
+        SET_NEXT_POINTER(prevptr, NULL);
     }
     else{   /* Delete normal node */
         #ifdef debug
         puts("Delete 4");
         #endif
-        SET_PREV_POINTER(nextptr, prevptr);
-        SET_NEXT_POINTER(prevptr, nextptr);
+        SET_NEXT_POINTER(prevptr, *(unsigned *)nextptr);
+        SET_PREV_POINTER(nextptr, *(unsigned *)prevptr);
     }
 }
 /*
@@ -575,16 +475,121 @@ void *mm_realloc(void *ptr, size_t size)
     return newptr;
 }
 
+/*
+ * mm_check - check the correctness of free list and allocated blocks.
+ */
+static int mm_check(void)
+{
+    mm_printfreelist();
+    mm_printheap();
+    return 0;
+}
 
+/*
+ * mm_printfresslist - print list of free nodes.
+ */
+static void mm_printfreelist(void)
+{
+    void *bp;
+    volatile size_t size;
+    for(int i = 0; i < FREE_LIST_NUM; i++){
+        printf("List[%2d]:", i);
+        for(bp = free_list[i]; bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
+            size = GET_SIZE(HDRP(bp));
+            printf("%u-->", (unsigned)size);
+        }
+        printf("\n");
+    }
+}
 
+/*
+ * mm_printheap - 
+ */
+static void mm_printheap(void)
+{
+    void *bp = heap_listp;
+    size_t size;
+    size_t alloc;
+    size_t prev_alloc;
+    int alloc_num = 0;
+    int free_num = 0;
+    printf("Heap:\n");
+    do{
+        /* Get basic information */
+        size = GET_SIZE(HDRP(bp));
+        alloc = GET_ALLOC(HDRP(bp));
+        prev_alloc = GET_PREV_ALLOC(HDRP(bp));
+        if(size == 8 && alloc == 1)
+            printf("prologue block\n");
+        else if(alloc == 0)
+            printf("free block[%d]\n", free_num++);
+        else if(size == 0)
+            break;
+        else
+            printf("alloc block[%d]\n", alloc_num++);
+        printf("%u/%u/%u\n  |\n",(unsigned)size, (unsigned)prev_alloc, (unsigned)alloc);
+        bp = NEXT_BLKP(bp);
+    }while(!(size == 0 && alloc == 1));
+    printf("epilogue block\n");
+    prev_alloc = GET_PREV_ALLOC(HDRP(bp));
+    printf("%u/%u/%u\n", 0, (unsigned)prev_alloc, 1);
+}
 
+/*
+ * adjust_alloc_size - adjust allocated block size in order to get higher score of 'space utilization'.
+ */
+static size_t adjust_alloc_size(size_t size) {
+    // freeciv.rep
+    if (size >= 120 && size < 128) {
+        return 128;
+    }
+    // binary.rep
+    if (size >= 448 && size < 512) {
+        return 512;
+    }
+    if (size >= 1000 && size < 1024) {
+        return 1024;
+    }
+    if (size >= 2000 && size < 2048) {
+        return 2048;
+    }
+    return size;
+}
 
-
-
-
-
-
-
-
-
-
+/*
+ * get_index - get free_list index by free block size.
+ */
+static int get_index(size_t size)
+{
+    /* Judge the range of size, and return list index */
+    if(size > 0 && size <= 24)
+        return 0;
+    else if(size <= 32)
+        return 1;
+    else if(size <= 64)
+        return 2;
+    else if(size <= 80)
+        return 3;
+    else if(size <= 120)
+        return 4;
+    else if(size <= 240)
+        return 5;
+    else if(size <= 480)
+        return 6;
+    else if(size <= 960)
+        return 7;
+    else if(size <= 1920)
+        return 8;
+    else if(size <= 3840)
+        return 9;
+    else if(size <= 7680)
+        return 10;
+    else if(size <= 15360)
+        return 11;
+    else if(size <= 30720)
+        return 12;
+    else if(size <= 61440)
+        return 13;
+    else 
+        return 14;
+}

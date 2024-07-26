@@ -35,10 +35,10 @@ team_t team = {
     ""
 };
 /* Debug mode */
-#define debug
+// #define debug
 
 /* Print debug information */
-#define print
+// #define print
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -88,8 +88,8 @@ team_t team = {
 #define NEXT_NODE(bp)       ((char *)(mem_heap_lo() + *(unsigned*)(bp + WSIZE)))
 
 /* Given block ptr bp, set previous pointer and next pointer address */
-#define SET_PREV_POINTER(bp,val)   (*(unsigned*)(bp) = ((unsigned)(long)val))
-#define SET_NEXT_POINTER(bp,val)   (*(unsigned*)((char *)bp + WSIZE) = ((unsigned)(long)val))
+#define SET_PREV_POINTER(bp, val)   (*(unsigned*)(bp) = ((unsigned)(long)val))
+#define SET_NEXT_POINTER(bp, val)   (*(unsigned*)((char *)bp + WSIZE) = ((unsigned)(long)val))
 
 /* Define the number of the free_list */
 #define FREE_LIST_NUM 15
@@ -119,6 +119,7 @@ static void mm_printheap(void);
 /* Define a global variable to point to the end of prologue block */
 static void *heap_listp;
 
+int times = 0;
 /*
  * Description of the free_list:
  *      head node: previous_pointer -> NULL, next_pointer -> normal node
@@ -193,8 +194,9 @@ static void *extend_heap(size_t words)
 void *mm_malloc(size_t size)
 {
     #ifdef debug
+    times++;
     puts("\nMalloc");
-        #ifdef print
+        #ifdef print    
         puts("Before");
         mm_check();
         printf("Malloc Size:%u\n", (unsigned)size);
@@ -209,7 +211,7 @@ void *mm_malloc(size_t size)
         return NULL;
 
     /* Adjust block size to include overhead and alignment reqs. */
-    // size = adjust_alloc_size(size);
+    size = adjust_alloc_size(size);
     if(size <= DSIZE)
         asize = 2*DSIZE;
     else
@@ -314,7 +316,10 @@ static void place(void *bp, size_t asize)
 void mm_free(void *bp)
 {
     #ifdef debug
-    puts("Free");
+    puts("\nFree");
+        #ifdef print
+            printf("Free Size:%u\n", (unsigned)GET_SIZE(HDRP(bp)));
+        #endif
     #endif
     size_t size = GET_SIZE(HDRP(bp));
     int prev_alloc = GET_PREV_ALLOC(HDRP(bp));
@@ -410,6 +415,11 @@ static void insert_node(void *bp)
         SET_NEXT_POINTER(newptr, *(unsigned *)oldptr);
         SET_PREV_POINTER(oldptr, *(unsigned *)newptr);
     }
+    #ifdef debug
+        #ifdef print
+        mm_check();
+        #endif
+    #endif
 }
 
 /*
@@ -480,6 +490,9 @@ void *mm_realloc(void *ptr, size_t size)
  */
 static int mm_check(void)
 {
+    if(!(times >= 500 && times <= 510))
+        return 1;
+    printf("Time:%d\n", times);
     mm_printfreelist();
     mm_printheap();
     return 0;
@@ -503,7 +516,7 @@ static void mm_printfreelist(void)
 }
 
 /*
- * mm_printheap - 
+ * mm_printheap - print the whole heap's block. 
  */
 static void mm_printheap(void)
 {
@@ -519,15 +532,20 @@ static void mm_printheap(void)
         size = GET_SIZE(HDRP(bp));
         alloc = GET_ALLOC(HDRP(bp));
         prev_alloc = GET_PREV_ALLOC(HDRP(bp));
-        if(size == 8 && alloc == 1)
+        if(size == 8 && alloc == 1){
             printf("prologue block\n");
-        else if(alloc == 0)
+            printf("%u/%u/%u\n  |\n",(unsigned)size, (unsigned)prev_alloc, (unsigned)alloc);
+        }
+        else if(alloc == 0){
             printf("free block[%d]\n", free_num++);
+            printf("%u/%u/%u\n  |\n",(unsigned)size, (unsigned)prev_alloc, (unsigned)alloc);
+        }
         else if(size == 0)
             break;
-        else
-            printf("alloc block[%d]\n", alloc_num++);
-        printf("%u/%u/%u\n  |\n",(unsigned)size, (unsigned)prev_alloc, (unsigned)alloc);
+        else{
+            // printf("alloc block[%d]\n", alloc_num++);
+            // printf("%u/%u/%u\n  |\n",(unsigned)size, (unsigned)prev_alloc, (unsigned)alloc);
+        }
         bp = NEXT_BLKP(bp);
     }while(!(size == 0 && alloc == 1));
     printf("epilogue block\n");

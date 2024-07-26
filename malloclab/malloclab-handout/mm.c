@@ -35,7 +35,7 @@ team_t team = {
     ""
 };
 /* Debug mode */
-// #define debug
+#define debug
 
 /* Print debug information */
 #define print
@@ -111,6 +111,9 @@ static void delete_node(void* bp);
 static void insert_node(void* bp);
 
 static size_t adjust_alloc_size(size_t size);
+
+static int mm_check(void);
+static void mm_printfreelist(void);
 /* Define a global variable to point to the end of prologue block */
 static void *heap_listp;
 
@@ -226,6 +229,8 @@ void *mm_malloc(size_t size)
 {
     #ifdef debug
     puts("Malloc");
+    // puts("Before");
+    // mm_check();
     #endif
     size_t asize;       /* Adjusted block size */
     size_t extendsize;  /* Amount to extend heap if no fit */
@@ -236,7 +241,7 @@ void *mm_malloc(size_t size)
         return NULL;
 
     /* Adjust block size to include overhead and alignment reqs. */
-    size = adjust_alloc_size(size);
+    // size = adjust_alloc_size(size);
     if(size <= DSIZE)
         asize = 2*DSIZE;
     else
@@ -253,7 +258,41 @@ void *mm_malloc(size_t size)
     if((bp = extend_heap(extendsize / WSIZE)) == NULL)
         return NULL;
     place(bp, asize);
+
+    #ifdef debug
+    // puts("After");
+    // mm_check();
+    #endif
+
     return bp;
+}
+
+/*
+ * mm_check - check the correctness of free list and allocated blocks.
+ */
+static int mm_check(void)
+{
+    mm_printfreelist();
+    return 0;
+}
+
+/*
+ * mm_printfresslist - print list of free nodes.
+ */
+static void mm_printfreelist(void)
+{
+    void *bp;
+    volatile size_t size;
+    for(int i = 0; i < FREE_LIST_NUM; i++){
+        int j = 0;
+        printf("List[%d]:", i);
+        for(bp = free_list[i]; bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
+            size = GET_SIZE(HDRP(bp));
+            if(j++ < 15)
+                printf("%u-->", (unsigned)size);
+        }
+        printf("\n");
+    }
 }
 
 /*
@@ -454,24 +493,7 @@ static void insert_node(void *bp)
     int index = get_index(size);
     char *newptr = bp;
     char *oldptr = free_list[index];
-    // free_list[index] = newptr;  /* Insert new node to the head of the list. */
 
-    // if(oldptr == bottom){ /* free_list[index] point to tail */
-    //     puts("Insert 1");
-    //     SET_PREV_POINTER(newptr, NULL);
-    //     SET_NEXT_POINTER(newptr, NULL);
-    // }
-    // else{   /* Insert new node to the list. */
-    //     puts("Insert 2");
-    //     printf("bottom:%p\n", bottom);
-    //     printf("oldptr:%p\n", oldptr);
-    //     SET_PREV_POINTER(newptr, NULL);
-    //     puts("Way 1");
-    //     SET_NEXT_POINTER(newptr, oldptr);
-    //     puts("Way 2");
-    //     SET_PREV_POINTER(oldptr, newptr);
-    //     puts("Way 3");
-    // }
     if(oldptr == bottom){ /* free_list[index] point to tail*/
         #ifdef debug
         puts("Insert 1");
@@ -503,24 +525,6 @@ static void delete_node(void *bp)
     char *prevptr = PREV_NODE(bp);
     char *nextptr = NEXT_NODE(bp);
 
-    // if(prevptr == NULL && nextptr == NULL){    /* Delete the node both head and tail */
-    //     puts("Delete 1");
-    //     free_list[index] = NULL;
-    // }
-    // else if(prevptr == NULL){    /* Delete head node */
-    //     puts("Delete 2");
-    //     free_list[index] = nextptr;
-    //     SET_PREV_POINTER(nextptr, NULL);
-    // }
-    // else if(nextptr == NULL){   /* Delete tail node */
-    //     puts("Delete 3");
-    //     SET_NEXT_POINTER(prevptr, NULL);
-    // }
-    // else{   /* Delete normal node */
-    //     puts("Delete 4");
-    //     SET_NEXT_POINTER(prevptr, nextptr);
-    //     SET_PREV_POINTER(nextptr, prevptr);
-    // }
     if(prevptr == bottom && nextptr == bottom){ /* Delete the both head and tail node */
         #ifdef debug
         puts("Delete 1");

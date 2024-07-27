@@ -156,7 +156,9 @@ int mm_init(void)
     heap_listp += (2*WSIZE);
 
     /* Extend the empty heap with a free block of CHUNKSIZE bytes */
-    if(extend_heap(CHUNKSIZE/WSIZE) == NULL)
+    // if(extend_heap(CHUNKSIZE/WSIZE) == NULL)
+    //     return -1;
+    if(extend_heap(2*DSIZE/WSIZE) == NULL)
         return -1;
     return 0;
 }
@@ -215,7 +217,7 @@ void *mm_malloc(size_t size)
     if(size <= DSIZE)
         asize = 2*DSIZE;
     else
-        asize = DSIZE * ((size + (WSIZE) + (DSIZE - 1)) / DSIZE);
+        asize = DSIZE * ((int)(size + (WSIZE) + (DSIZE - 1)) / DSIZE);
 
     #ifdef debug
         #ifdef print
@@ -492,7 +494,7 @@ void *mm_realloc(void *ptr, size_t size)
  */
 static int mm_check(void)
 {
-    if(!(times >= 500 && times <= 510))
+    if(!(times >= 500 && times <= 600))
         return 1;
     printf("Time:%d\n", times);
     mm_printfreelist();
@@ -509,7 +511,7 @@ static void mm_printfreelist(void)
     volatile size_t size;
     for(int i = 0; i < FREE_LIST_NUM; i++){
         printf("List[%2d]:", i);
-        for(bp = *(unsigned *)free_list[i]+bottom; bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
+        for(bp = free_list[i]+(unsigned)bottom; bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
             size = GET_SIZE(HDRP(bp));
             printf("%u-->", (unsigned)size);
         }
@@ -565,6 +567,7 @@ static size_t adjust_alloc_size(size_t size) {
     }
     // binary.rep
     if (size >= 448 && size < 512) {
+        // puts("Size >= 448 && Size < 512");
         return 512;
     }
     if (size >= 1000 && size < 1024) {

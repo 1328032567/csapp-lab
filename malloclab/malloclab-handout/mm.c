@@ -35,10 +35,10 @@ team_t team = {
     ""
 };
 /* Debug mode */
-#define debug
+// #define debug
 
 /* Print debug information */
-#define print
+// #define print
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -144,7 +144,7 @@ int mm_init(void)
     for(int i = 0; i < FREE_LIST_NUM; i++){
         if((heap_listp = mem_sbrk(DSIZE)) == (void *)(-1))
             return -1;
-        free_list[i] = mem_heap_lo();
+        free_list[i] = NULL;
     }
     /* Create the prologue header, footer and epilogue header at heap */
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
@@ -266,7 +266,7 @@ static void *find_fit(size_t asize)
     int index = get_index(asize);
 
     for(int i = index; i < FREE_LIST_NUM; i++){ /* Traverse free_list */
-        for(ptr = free_list[i]; ptr != bottom; ptr = NEXT_NODE(ptr)){
+        for(ptr = (unsigned long)free_list[i] + (char *)bottom; ptr != bottom; ptr = NEXT_NODE(ptr)){
             size = GET_SIZE(HDRP(ptr));
             if(size >= asize)
                 return ptr;
@@ -396,25 +396,47 @@ static void insert_node(void *bp)
     #endif
     size_t size = GET_SIZE(HDRP(bp));
     volatile int index = get_index(size);
-    char *newptr = bp;
-    char *oldptr = free_list[index];
-    free_list[index] = newptr;
+    char *newptr = bp;  /* absolute address */
+    char *oldptr = (long)free_list[index] + bottom;  /* absolute address */
 
-    if(oldptr == bottom){ /* free_list[index] point to tail*/
+    if(oldptr == bottom){   /* free_list[index] point to tail*/
         #ifdef debug
         puts("Insert 1");
         #endif
-        SET_PREV_POINTER(newptr, NULL);
-        SET_NEXT_POINTER(newptr, NULL);
+        free_list[index] = (char *)(newptr - (char *)bottom);
+        SET_PREV_POINTER(newptr, NULL);/* set offset address */
+        SET_NEXT_POINTER(newptr, NULL);/* set offset address*/
     }
-    else{
+    else{   /* Insert node to the head */
         #ifdef debug
         puts("Insert 2");
         #endif
-        SET_PREV_POINTER(newptr, NULL);
-        SET_NEXT_POINTER(newptr, *(unsigned *)oldptr);
-        SET_PREV_POINTER(oldptr, *(unsigned *)newptr);
+        free_list[index] = (char *)(newptr - (char *)bottom);/* set offset address */ 
+        SET_PREV_POINTER(oldptr, (unsigned)newptr-(unsigned)bottom);/* set offset address */
+        SET_PREV_POINTER(newptr, NULL);/* set offset address */
+        SET_NEXT_POINTER(newptr, (unsigned)oldptr - (unsigned)bottom);/* set offset address*/
     }
+
+
+    // char *newptr = bp;/* absolute address */
+    // char *oldptr = free_list[index];/* heap offset address */
+    // free_list[index] = newptr;
+
+    // if(oldptr == bottom){ /* free_list[index] point to tail*/
+    //     #ifdef debug
+    //     puts("Insert 1");
+    //     #endif
+    //     SET_PREV_POINTER(newptr, NULL);
+    //     SET_NEXT_POINTER(newptr, NULL);
+    // }
+    // else{
+    //     #ifdef debug
+    //     puts("Insert 2");
+    //     #endif
+    //     SET_PREV_POINTER(newptr, NULL);
+    //     SET_NEXT_POINTER(newptr, *(unsigned *)oldptr);
+    //     SET_PREV_POINTER(oldptr, *(unsigned *)newptr);
+    // }
 
     #ifdef debug
         #ifdef print
@@ -433,35 +455,64 @@ static void delete_node(void *bp)
     #endif
     size_t size = GET_SIZE(HDRP(bp));
     int index = get_index(size);
-    char *prevptr = PREV_NODE(bp);
-    char *nextptr = NEXT_NODE(bp);
+    char *prevptr = PREV_NODE(bp);/* absolute address */
+    char *nextptr = NEXT_NODE(bp);/* absolute address */
 
-    if((prevptr == bottom) && (nextptr == bottom)){ /* Delete the both head and tail node */
+    if(prevptr == bottom && nextptr == bottom){ /* Delete both head and tail node */
         #ifdef debug
         puts("Delete 1");
         #endif
-        free_list[index] = bottom;
+        free_list[index] = NULL;
     }
-    else if(prevptr == bottom){    /* Delete head node */
+    else if(prevptr == bottom){ /* Delete head node */
         #ifdef debug
         puts("Delete 2");
         #endif
-        free_list[index] = nextptr;
-        SET_PREV_POINTER(nextptr, NULL);
+        free_list[index] = (char *)(nextptr - (char *)bottom);/* set offset address */
+        SET_PREV_POINTER(nextptr, NULL);/* set offset address */
     }
-    else if(nextptr == bottom){   /* Delete tail node */
+    else if(nextptr == bottom){ /* Delete tail node */
         #ifdef debug
         puts("Delete 3");
         #endif
-        SET_NEXT_POINTER(prevptr, NULL);
+        SET_NEXT_POINTER(prevptr, NULL);/* set offset address */
     }
     else{   /* Delete normal node */
         #ifdef debug
         puts("Delete 4");
         #endif
-        SET_NEXT_POINTER(prevptr, *(unsigned *)nextptr);
-        SET_PREV_POINTER(nextptr, *(unsigned *)prevptr);
+        SET_PREV_POINTER(nextptr, (unsigned)prevptr - (unsigned)bottom);/* set offset address */
+        SET_NEXT_POINTER(prevptr, (unsigned)nextptr - (unsigned)bottom);/* set offset address */
     }
+    // char *prevptr = PREV_NODE(bp);
+    // char *nextptr = NEXT_NODE(bp);
+
+    // if((prevptr == bottom) && (nextptr == bottom)){ /* Delete the both head and tail node */
+    //     #ifdef debug
+    //     puts("Delete 1");
+    //     #endif
+    //     free_list[index] = bottom;
+    // }
+    // else if(prevptr == bottom){    /* Delete head node */
+    //     #ifdef debug
+    //     puts("Delete 2");
+    //     #endif
+    //     free_list[index] = nextptr;
+    //     SET_PREV_POINTER(nextptr, NULL);
+    // }
+    // else if(nextptr == bottom){   /* Delete tail node */
+    //     #ifdef debug
+    //     puts("Delete 3");
+    //     #endif
+    //     SET_NEXT_POINTER(prevptr, NULL);
+    // }
+    // else{   /* Delete normal node */
+    //     #ifdef debug
+    //     puts("Delete 4");
+    //     #endif
+    //     SET_NEXT_POINTER(prevptr, *(unsigned *)nextptr);
+    //     SET_PREV_POINTER(nextptr, *(unsigned *)prevptr);
+    // }
 }
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
@@ -508,7 +559,7 @@ static void mm_printfreelist(void)
     volatile size_t size;
     for(int i = 0; i < FREE_LIST_NUM; i++){
         printf("List[%2d]:", i);
-        for(bp = free_list[i]; bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
+        for(bp = *(unsigned *)free_list[i]+bottom; bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
             size = GET_SIZE(HDRP(bp));
             printf("%u-->", (unsigned)size);
         }

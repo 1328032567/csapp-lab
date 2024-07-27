@@ -35,10 +35,10 @@ team_t team = {
     ""
 };
 /* Debug mode */
-// #define debug
+#define debug
 
 /* Print debug information */
-// #define print
+#define print
 
 /* single word (4) or double word (8) alignment */
 #define ALIGNMENT 8
@@ -395,7 +395,7 @@ static void insert_node(void *bp)
     puts("Insert_node");
     #endif
     size_t size = GET_SIZE(HDRP(bp));
-    int index = get_index(size);
+    volatile int index = get_index(size);
     char *newptr = bp;
     char *oldptr = free_list[index];
     free_list[index] = newptr;
@@ -415,6 +415,7 @@ static void insert_node(void *bp)
         SET_NEXT_POINTER(newptr, *(unsigned *)oldptr);
         SET_PREV_POINTER(oldptr, *(unsigned *)newptr);
     }
+
     #ifdef debug
         #ifdef print
         mm_check();
@@ -435,7 +436,7 @@ static void delete_node(void *bp)
     char *prevptr = PREV_NODE(bp);
     char *nextptr = NEXT_NODE(bp);
 
-    if(prevptr == bottom && nextptr == bottom){ /* Delete the both head and tail node */
+    if((prevptr == bottom) && (nextptr == bottom)){ /* Delete the both head and tail node */
         #ifdef debug
         puts("Delete 1");
         #endif

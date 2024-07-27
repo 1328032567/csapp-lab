@@ -105,6 +105,7 @@ static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
+static void *expend_block(void *bp, size_t size);
 
 static int get_index(size_t size);
 
@@ -287,7 +288,8 @@ static void place(void *bp, size_t asize)
     #endif
     size_t size = GET_SIZE(HDRP(bp));
     size_t rest = size - asize;
-    delete_node(bp);
+    if(GET_ALLOC(HDRP(bp)) == 0)    /* block is on free status */
+        delete_node(bp);
     if(rest < (2*DSIZE)){   /* Not split */
         #ifdef debug
         puts("Place 1");
@@ -329,6 +331,69 @@ void mm_free(void *bp)
     PUT(FTRP(bp), PACK(size, prev_alloc, 0));
 
     coalesce(bp);
+}
+
+/*
+ * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
+ */
+void *mm_realloc(void *bp, size_t size)
+{
+    #ifdef debug
+    puts("Realloc");
+    #endif
+    size_t oldsize = GET_SIZE(HDRP(bp)) - WSIZE;    /* Exclude the size of block header */
+    size_t newsize = size;
+    char *oldptr = bp;
+    char *newptr;
+
+    if(bp == NULL)  /* bp == null equals to mm_malloc function */
+        return mm_malloc(newsize);
+
+    if(newsize == 0){   /* size == 0 equals to mm_free the block */
+        free(oldptr);
+        return NULL;
+    }
+        
+    if(oldsize >= newsize){ /* original block size add padding size is enough to be allocated */
+        place(oldptr, newsize);/* place new block and if rest size is big enough, then split */
+        return oldptr;
+    }
+    else{   /* need to expend the block from the adjacent free blocks */ 
+        if((newptr = expend_block(bp, size)) == NULL){ /* expend failed, need to malloc a new block */
+            newptr = mm_malloc(newsize);    /* allocate a new block */
+            if(newptr == NULL)
+                return NULL;
+            size_t copysize = GET_SIZE(HDRP(oldptr));
+            memcpy(newptr, oldptr, copysize);
+            mm_free(oldptr);
+            return newptr;
+        }
+        else{   /* expend succeed, return new pointer */
+            return newptr;
+        }
+    }
+
+    // void *oldptr = ptr;
+    // void *newptr;
+    // size_t copySize;
+    
+    // newptr = mm_malloc(size);
+    // if (newptr == NULL)
+    //   return NULL;
+    // copySize = GET_SIZE(HDRP(ptr));
+    // if (size < copySize)
+    //   copySize = size;
+    // memcpy(newptr, oldptr, copySize);
+    // mm_free(oldptr);
+    // return newptr;
+}
+
+/*
+ * expend_block - expend the allocated block from the adjacent free blocks if exists.
+ */
+static void *expend_block(void *bp, size_t size)
+{
+    return NULL;
 }
 
 /*
@@ -465,28 +530,6 @@ static void delete_node(void *bp)
         SET_PREV_POINTER(nextptr, (unsigned)prevptr - (unsigned)bottom);/* set offset address */
         SET_NEXT_POINTER(prevptr, (unsigned)nextptr - (unsigned)bottom);/* set offset address */
     }
-}
-/*
- * mm_realloc - Implemented simply in terms of mm_malloc and mm_free
- */
-void *mm_realloc(void *ptr, size_t size)
-{
-    #ifdef debug
-    puts("Realloc");
-    #endif
-    void *oldptr = ptr;
-    void *newptr;
-    size_t copySize;
-    
-    newptr = mm_malloc(size);
-    if (newptr == NULL)
-      return NULL;
-    copySize = GET_SIZE(HDRP(ptr));
-    if (size < copySize)
-      copySize = size;
-    memcpy(newptr, oldptr, copySize);
-    mm_free(oldptr);
-    return newptr;
 }
 
 /*

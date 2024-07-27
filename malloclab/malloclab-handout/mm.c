@@ -417,27 +417,6 @@ static void insert_node(void *bp)
         SET_NEXT_POINTER(newptr, (unsigned)oldptr - (unsigned)bottom);/* set offset address*/
     }
 
-
-    // char *newptr = bp;/* absolute address */
-    // char *oldptr = free_list[index];/* heap offset address */
-    // free_list[index] = newptr;
-
-    // if(oldptr == bottom){ /* free_list[index] point to tail*/
-    //     #ifdef debug
-    //     puts("Insert 1");
-    //     #endif
-    //     SET_PREV_POINTER(newptr, NULL);
-    //     SET_NEXT_POINTER(newptr, NULL);
-    // }
-    // else{
-    //     #ifdef debug
-    //     puts("Insert 2");
-    //     #endif
-    //     SET_PREV_POINTER(newptr, NULL);
-    //     SET_NEXT_POINTER(newptr, *(unsigned *)oldptr);
-    //     SET_PREV_POINTER(oldptr, *(unsigned *)newptr);
-    // }
-
     #ifdef debug
         #ifdef print
         mm_check();
@@ -484,35 +463,6 @@ static void delete_node(void *bp)
         SET_PREV_POINTER(nextptr, (unsigned)prevptr - (unsigned)bottom);/* set offset address */
         SET_NEXT_POINTER(prevptr, (unsigned)nextptr - (unsigned)bottom);/* set offset address */
     }
-    // char *prevptr = PREV_NODE(bp);
-    // char *nextptr = NEXT_NODE(bp);
-
-    // if((prevptr == bottom) && (nextptr == bottom)){ /* Delete the both head and tail node */
-    //     #ifdef debug
-    //     puts("Delete 1");
-    //     #endif
-    //     free_list[index] = bottom;
-    // }
-    // else if(prevptr == bottom){    /* Delete head node */
-    //     #ifdef debug
-    //     puts("Delete 2");
-    //     #endif
-    //     free_list[index] = nextptr;
-    //     SET_PREV_POINTER(nextptr, NULL);
-    // }
-    // else if(nextptr == bottom){   /* Delete tail node */
-    //     #ifdef debug
-    //     puts("Delete 3");
-    //     #endif
-    //     SET_NEXT_POINTER(prevptr, NULL);
-    // }
-    // else{   /* Delete normal node */
-    //     #ifdef debug
-    //     puts("Delete 4");
-    //     #endif
-    //     SET_NEXT_POINTER(prevptr, *(unsigned *)nextptr);
-    //     SET_PREV_POINTER(nextptr, *(unsigned *)prevptr);
-    // }
 }
 /*
  * mm_realloc - Implemented simply in terms of mm_malloc and mm_free

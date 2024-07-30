@@ -91,47 +91,51 @@ team_t team = {
 #define SET_PREV_POINTER(bp, val)   (*(unsigned*)(bp) = ((unsigned)(long)val))
 #define SET_NEXT_POINTER(bp, val)   (*(unsigned*)((char *)bp + WSIZE) = ((unsigned)(long)val))
 
-/* Define the number of the free_list */
-#define FREE_LIST_NUM 15
-
 /* Define heap bottom equals to mem_heap_lo() */
 #define bottom (mem_heap_lo())
 
-/* Define gobal free list to store head pointer */
+/* Define the convert rules between absolute address and relative offset address at heap */
+#define GET_ABS_ADDR(abs)    ((char *)((unsigned)(abs) + (char *)bottom))
+#define GET_REL_ADDR(rel)    ((char *)((rel) - (char *)bottom))
+
+/* Define the number of the free_list */
+#define FREE_LIST_NUM 15
+
+/* Define global free list to store head pointer */
 static char **free_list;
 
-/* Additional Functions*/
+/* Additional Functions */
 static void *extend_heap(size_t words);
 static void *coalesce(void *bp);
 static void *find_fit(size_t asize);
 static void place(void *bp, size_t asize);
-static void *expend_block(void *bp, size_t size);
 
 static int get_index(size_t size);
-
+/* manipulate free_list node function */
 static void delete_node(void* bp);
 static void insert_node(void* bp);
-
+/* adjust size to optimize allocation function */
 static size_t adjust_alloc_size(size_t size);
-
+/* check heap functions */
 static int mm_check(void);
 static void mm_printfreelist(void);
 static void mm_printheap(void);
+static void printHex(const void *data, size_t length);
 /* Define a global variable to point to the end of prologue block */
 static void *heap_listp;
 
-int times = 0;
 /*
  * Description of the free_list:
  *      head node: previous_pointer -> NULL, next_pointer -> normal node
  *      tail node: previous_pointer -> normal node, next_pointer -> NULL
  *      free_list[index]: point to the free head node's address.
-        image:                   /--------------\               /--------------\               /---------------\
-        free_list[index]        V                \             V                \             V                 \
-        address     --->    [head_node]    |--->  \    [normal_node1]  |--->     \     [normal_node2]    |--->   \     [tail_node]
-               NULL <---    previous      |        \-- previous       |           \--  previous         |         \--  previous
-                            next       --|             next        --|                 next          --|               next     ---> NULL
+ *      image:                   /--------------\               /--------------\               /---------------\
+ *      free_list[index]        V                \             V                \             V                 \
+ *      address     --->    [head_node]    |--->  \    [normal_node1]  |--->     \     [normal_node2]    |--->   \     [tail_node]
+ *             NULL <---    previous      |        \-- previous       |           \--  previous         |         \--  previous
+ *                          next       --|             next        --|                 next          --|               next     ---> NULL
  */
+
 /* 
  * mm_init - initialize the malloc package.
  */
@@ -147,6 +151,7 @@ int mm_init(void)
             return -1;
         free_list[i] = NULL;
     }
+
     /* Create the prologue header, footer and epilogue header at heap */
     if((heap_listp = mem_sbrk(4*WSIZE)) == (void *)-1)
         return -1;
@@ -159,6 +164,7 @@ int mm_init(void)
     /* Extend the empty heap with a free block of CHUNKSIZE bytes */
     // if(extend_heap(CHUNKSIZE/WSIZE) == NULL)
     //     return -1;
+    /* Reduce the initialize size of heap */
     if(extend_heap(2*DSIZE/WSIZE) == NULL)
         return -1;
     return 0;
@@ -225,17 +231,10 @@ void *mm_malloc(size_t size)
         printf("Actual Size:%u\n", (unsigned)asize);
         #endif
     #endif
+
     /* Search the free list for a fit */
     if((bp = find_fit(asize)) != NULL) {
         place(bp, asize);
-
-    #ifdef debug
-        #ifdef print
-        puts("After");
-        mm_check();
-        #endif
-    #endif
-
         return bp;
     }
 
@@ -269,7 +268,7 @@ static void *find_fit(size_t asize)
     int index = get_index(asize);
 
     for(int i = index; i < FREE_LIST_NUM; i++){ /* Traverse free_list */
-        for(ptr = (unsigned long)free_list[i] + (char *)bottom; ptr != bottom; ptr = NEXT_NODE(ptr)){
+        for(ptr = GET_ABS_ADDR(free_list[i]); ptr != bottom; ptr = NEXT_NODE(ptr)){
             size = GET_SIZE(HDRP(ptr));
             if(size >= asize)
                 return ptr;
@@ -338,62 +337,29 @@ void mm_free(void *bp)
  */
 void *mm_realloc(void *bp, size_t size)
 {
+    /* Optimization Idea: 
+     *      set a buffer at the beganning of the heap, 
+     *      and fist free the bp, store the old data into buffer,
+     *      finally malloc the new space, and memcpy the old data,
+     *      and the buffer data to restore.
+     */
     #ifdef debug
     puts("Realloc");
     #endif
-    size_t oldsize = GET_SIZE(HDRP(bp)) - WSIZE;    /* Exclude the size of block header */
-    size_t newsize = size;
-    char *oldptr = bp;
-    char *newptr;
-
-    if(bp == NULL)  /* bp == null equals to mm_malloc function */
-        return mm_malloc(newsize);
-
-    if(newsize == 0){   /* size == 0 equals to mm_free the block */
-        free(oldptr);
-        return NULL;
-    }
-        
-    if(oldsize >= newsize){ /* original block size add padding size is enough to be allocated */
-        place(oldptr, newsize);/* place new block and if rest size is big enough, then split */
-        return oldptr;
-    }
-    else{   /* need to expend the block from the adjacent free blocks */ 
-        if((newptr = expend_block(bp, size)) == NULL){ /* expend failed, need to malloc a new block */
-            newptr = mm_malloc(newsize);    /* allocate a new block */
-            if(newptr == NULL)
-                return NULL;
-            size_t copysize = GET_SIZE(HDRP(oldptr));
-            memcpy(newptr, oldptr, copysize);
-            mm_free(oldptr);
-            return newptr;
-        }
-        else{   /* expend succeed, return new pointer */
-            return newptr;
-        }
-    }
-
-    // void *oldptr = ptr;
-    // void *newptr;
-    // size_t copySize;
+    /* Implicit List Version */
+    void *oldptr = bp;
+    void *newptr;
+    size_t copySize;
     
-    // newptr = mm_malloc(size);
-    // if (newptr == NULL)
-    //   return NULL;
-    // copySize = GET_SIZE(HDRP(ptr));
-    // if (size < copySize)
-    //   copySize = size;
-    // memcpy(newptr, oldptr, copySize);
-    // mm_free(oldptr);
-    // return newptr;
-}
-
-/*
- * expend_block - expend the allocated block from the adjacent free blocks if exists.
- */
-static void *expend_block(void *bp, size_t size)
-{
-    return NULL;
+    newptr = mm_malloc(size);
+    if (newptr == NULL)
+      return NULL;
+    copySize = GET_SIZE(HDRP(bp))-WSIZE;
+    if (size < copySize)
+      copySize = size;
+    memcpy(newptr, oldptr, copySize);
+    mm_free(oldptr);
+    return newptr;
 }
 
 /*
@@ -462,15 +428,15 @@ static void insert_node(void *bp)
     puts("Insert_node");
     #endif
     size_t size = GET_SIZE(HDRP(bp));
-    volatile int index = get_index(size);
+    int index = get_index(size);
     char *newptr = bp;  /* absolute address */
-    char *oldptr = (long)free_list[index] + bottom;  /* absolute address */
-
+    char *oldptr = GET_ABS_ADDR(free_list[index]);  /* absolute address */
+    
     if(oldptr == bottom){   /* free_list[index] point to tail*/
         #ifdef debug
         puts("Insert 1");
         #endif
-        free_list[index] = (char *)(newptr - (char *)bottom);
+        free_list[index] = GET_REL_ADDR(newptr);
         SET_PREV_POINTER(newptr, NULL);/* set offset address */
         SET_NEXT_POINTER(newptr, NULL);/* set offset address*/
     }
@@ -478,10 +444,10 @@ static void insert_node(void *bp)
         #ifdef debug
         puts("Insert 2");
         #endif
-        free_list[index] = (char *)(newptr - (char *)bottom);/* set offset address */ 
-        SET_PREV_POINTER(oldptr, (unsigned)newptr-(unsigned)bottom);/* set offset address */
+        free_list[index] = GET_REL_ADDR(newptr);/* set offset address */ 
+        SET_PREV_POINTER(oldptr, GET_REL_ADDR(newptr));/* set offset address */
         SET_PREV_POINTER(newptr, NULL);/* set offset address */
-        SET_NEXT_POINTER(newptr, (unsigned)oldptr - (unsigned)bottom);/* set offset address*/
+        SET_NEXT_POINTER(newptr, GET_REL_ADDR(oldptr));/* set offset address*/
     }
 
     #ifdef debug
@@ -514,7 +480,8 @@ static void delete_node(void *bp)
         #ifdef debug
         puts("Delete 2");
         #endif
-        free_list[index] = (char *)(nextptr - (char *)bottom);/* set offset address */
+        // free_list[index] = (char *)(nextptr - (char *)bottom);/* set offset address */
+        free_list[index] = GET_REL_ADDR(nextptr);/* set offset address */
         SET_PREV_POINTER(nextptr, NULL);/* set offset address */
     }
     else if(nextptr == bottom){ /* Delete tail node */
@@ -527,8 +494,8 @@ static void delete_node(void *bp)
         #ifdef debug
         puts("Delete 4");
         #endif
-        SET_PREV_POINTER(nextptr, (unsigned)prevptr - (unsigned)bottom);/* set offset address */
-        SET_NEXT_POINTER(prevptr, (unsigned)nextptr - (unsigned)bottom);/* set offset address */
+        SET_PREV_POINTER(nextptr, GET_REL_ADDR(prevptr));/* set offset address */
+        SET_NEXT_POINTER(prevptr, GET_REL_ADDR(nextptr));/* set offset address */
     }
 }
 
@@ -537,9 +504,6 @@ static void delete_node(void *bp)
  */
 static int mm_check(void)
 {
-    if(!(times >= 500 && times <= 600))
-        return 1;
-    printf("Time:%d\n", times);
     mm_printfreelist();
     mm_printheap();
     return 0;
@@ -554,7 +518,7 @@ static void mm_printfreelist(void)
     volatile size_t size;
     for(int i = 0; i < FREE_LIST_NUM; i++){
         printf("List[%2d]:", i);
-        for(bp = free_list[i]+(unsigned)bottom; bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
+        for(bp = GET_ABS_ADDR(free_list[i]); bp != bottom ; bp = NEXT_NODE(bp)){  /* traverse each list */
             size = GET_SIZE(HDRP(bp));
             printf("%u-->", (unsigned)size);
         }
@@ -590,8 +554,8 @@ static void mm_printheap(void)
         else if(size == 0)
             break;
         else{
-            // printf("alloc block[%d]\n", alloc_num++);
-            // printf("%u/%u/%u\n  |\n",(unsigned)size, (unsigned)prev_alloc, (unsigned)alloc);
+            printf("alloc block[%d]\n", alloc_num++);
+            printf("%u/%u/%u\n  |\n",(unsigned)size, (unsigned)prev_alloc, (unsigned)alloc);
         }
         bp = NEXT_BLKP(bp);
     }while(!(size == 0 && alloc == 1));
@@ -620,6 +584,18 @@ static size_t adjust_alloc_size(size_t size) {
         return 2048;
     }
     return size;
+}
+
+/*
+ * printHex - print pointer content in Hex format.
+ */
+static void printHex(const void *data, size_t length) 
+{
+    const unsigned char *ptr = (const unsigned char *)data;
+    for (size_t i = 0; i < length; i++) {
+        printf("%02X ", ptr[i]);
+    }
+    printf("\n");
 }
 
 /*

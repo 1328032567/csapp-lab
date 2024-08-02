@@ -1,0 +1,4 @@
+*.o
+proxy
+cgi-bin
+tiny

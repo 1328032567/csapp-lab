@@ -1,3 +1,4 @@
+#include "csapp.h"
 typedef struct {
     int *buf;       /* Buffer arrary */
     int n;          /* Maximum number of slots */

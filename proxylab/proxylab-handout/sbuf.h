@@ -8,3 +8,8 @@ typedef struct {
     sem_t slots;    /* Counts available slots */
     sem_t items;    /* Counts available items */
 } sbuf_t;
+/* Declare relative function to manipulate sbuf_t data structure */
+void sbuf_init(sbuf_t *sp, int n);
+void sbuf_deinit(sbuf_t *sp);
+void sbuf_insert(sbuf_t *sp, int item);
+int sbuf_remove(sbuf_t *sp);

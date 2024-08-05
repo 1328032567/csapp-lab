@@ -95,10 +95,10 @@ void web_proxy(int fd)
     printf("%s", http_request);
 
     /* Send HTTP Request to Server */
-    rio_readinitb(&rio, serverfd);
+    Rio_readinitb(&rio, serverfd);
     Rio_writen(serverfd, http_request, strlen(http_request));
 
-    int n;
+    size_t n;
     while((n = Rio_readnb(&rio, buf, MAXLINE)) > 0)
         Rio_writen(fd, buf, n);
     Close(serverfd);

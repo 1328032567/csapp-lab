@@ -98,8 +98,9 @@ void web_proxy(int fd)
     rio_readinitb(&rio, serverfd);
     Rio_writen(serverfd, http_request, strlen(http_request));
 
-    while(Rio_readlineb(&rio, buf, MAXLINE) > 0)
-        Rio_writen(fd, buf, MAXLINE);
+    int n;
+    while((n = Rio_readnb(&rio, buf, MAXLINE)) > 0)
+        Rio_writen(fd, buf, n);
     Close(serverfd);
 }
 /*
@@ -170,39 +171,23 @@ void read_requesthdrs(rio_t *rp, string *header, string *hostname)
  */
 int parse_uri(string *uri, URL *url)
 {
-    /* Copy uri into uri_copy */
-    char uri_copy[strlen(*uri)+1];
-    strcpy(uri_copy, *uri);
-
-    /* Split protocol part */
-    char *protocol = strtok(uri_copy, "://");
-    if (protocol == NULL) {
-        fprintf(stderr, "Invalid URL format\n");
-        return -1;
+    char *s = *uri;
+    char *ptr = strstr(s, "//");
+    if (ptr != NULL) s = ptr + 2;
+ 
+    ptr = strchr(s, '/');
+    if (ptr != NULL) {
+        strcpy(url->path, ptr);
+        *ptr = '\0';
     }
-
-    /* Split host and port part */
-    char *host_port = strtok(NULL, "/");
-    if (host_port == NULL) {
-        fprintf(stderr, "Invalid URL format\n");
-        return -2;
-    }
-
-    /* If included port number */
-    char *port_start = strchr(host_port, ':');
-    if (port_start != NULL) {
-        *port_start = '\0'; /* replace ':' to '\0', let the string end */
-        strcpy(url->host, host_port);
-        strcpy(url->port, port_start + 1);
-    } else {    /* default port 80 */
-        strcpy(url->host, host_port);
-        strcpy(url->port, "80");
-    }
-
-    /* path_start point to '\0' which is replaced by the second strtok function */
-    char *path_start = host_port + strlen(host_port);
-    *path_start = '/';
-    strcpy(url->path, path_start);
+    
+    ptr = strchr(s, ':');
+    if (ptr != NULL) {
+        strcpy(url->port, ptr + 1);
+        *ptr = '\0';
+    } else strcpy(url->port, "80");
+ 
+    strcpy(url->host, s);
     return 0;
 }
 /*

@@ -26,7 +26,7 @@ void sbuf_insert(sbuf_t *sp, int item)
     P(&sp->mutex);                       /* Lock the buffer */
     sp->buf[(++sp->rear)%(sp->n)] = item;    /* Insert the item */
     V(&sp->mutex);                      /* Unlock the buffer */
-    V(&sp->slots);                      /* Announce available item */
+    V(&sp->items);                      /* Announce available item */
 }
 
 /* Remove and return the first item from buffer sp */

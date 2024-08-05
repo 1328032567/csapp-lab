@@ -199,13 +199,10 @@ int parse_uri(string *uri, URL *url)
         strcpy(url->port, "80");
     }
 
-    /* Split path part */
-    char *path_start = strchr(uri_copy, '/');
-    if (path_start != NULL) {
-        strcpy(url->path, path_start);
-    } else {
-        strcpy(url->path, "/");
-    }
+    /* path_start point to '\0' which is replaced by the second strtok function */
+    char *path_start = host_port + strlen(host_port);
+    *path_start = '/';
+    strcpy(url->path, path_start);
     return 0;
 }
 /*

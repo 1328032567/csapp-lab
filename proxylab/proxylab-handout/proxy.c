@@ -1,10 +1,13 @@
 #include "csapp.h"
-#include <stdio.h>
-#include <string.h>
+#include "sbuf.h"
 
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
+/* Define threads number */
+#define NTHREADS 4
+/* Define buffer number */
+#define SBUFSIZE 16
 
 /* Define relative data structure */
 typedef char string[MAXLINE];
@@ -13,9 +16,14 @@ typedef struct{
     string port;    /* URL server port */
     string path;    /* URL file path */
 }URL;
+/* Define shared buffer for connected descriptors*/
+sbuf_t sbuf;                
 
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
+
+/* Define thread functions to deal with connected socket */
+void *thread(void *vargp);
 
 void web_proxy(int connfd);
 void parseUrl(const string *uri, URL *url);
@@ -26,6 +34,7 @@ int main(int argc, char **argv)
     int listenfd, connfd;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;
+    pthread_t tid;  /* thread id */
 
     /* Ignore SIGPIPE signal to develop proxy robustness */
     signal(SIGPIPE, SIG_IGN);
@@ -37,11 +46,28 @@ int main(int argc, char **argv)
     }
 
     listenfd = Open_listenfd(argv[1]);
-    while (1) {
-        clientlen = sizeof(clientaddr);
-        connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen); //line:netp:tiny:accept
+    sbuf_init(&sbuf, SBUFSIZE);
+    for(int i = 0;i < NTHREADS; i++)   /* Create worker threads */
+        Pthread_create(&tid, NULL, thread, NULL);
+
+    while(1){
+        clientlen = sizeof(struct sockaddr_storage);
+        connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+        sbuf_insert(&sbuf, connfd); /* Insert connfd in buffer */
+    }
+    return 0;
+}
+
+/*
+ * thread - threads fetch connected socket from buffer.
+ */
+void *thread(void *vargp)
+{
+    Pthread_detach(pthread_self());
+    while(1){
+        int connfd = sbuf_remove(&sbuf);    /* Remove connfd from buffer */
         web_proxy(connfd);
-        Close(connfd);                                            //line:netp:tiny:close
+        Close(connfd);
     }
 }
 

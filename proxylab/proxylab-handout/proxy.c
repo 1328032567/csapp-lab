@@ -1,33 +1,11 @@
 #include "csapp.h"
-#include "sbuf.h"
+#include "proxy.h"
 
-/* Recommended max cache and object sizes */
-#define MAX_CACHE_SIZE 1049000
-#define MAX_OBJECT_SIZE 102400
-/* Define threads number */
-#define NTHREADS 4
-/* Define buffer number */
-#define SBUFSIZE 16
-
-/* Define relative data structure */
-typedef char string[MAXLINE];
-typedef struct{
-    string host;    /* URL hostname */
-    string port;    /* URL server port */
-    string path;    /* URL file path */
-}URL;
 /* Define shared buffer for connected descriptors*/
 sbuf_t sbuf;                
 
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
-
-/* Define thread functions to deal with connected socket */
-void *thread(void *vargp);
-
-void web_proxy(int connfd);
-void parseUrl(const string *uri, URL *url);
-void getRequest(int connfd, URL *url, string *http_request);
 
 int main(int argc, char **argv) 
 {

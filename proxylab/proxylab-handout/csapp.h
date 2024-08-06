@@ -35,10 +35,21 @@
 #define DEF_UMASK  S_IWGRP|S_IWOTH
 /* $end createmasks */
 
+/* Misc constants */
+#define	MAXLINE	 8192  /* Max text line length */
+#define MAXBUF   8192  /* Max I/O buffer size */
+#define LISTENQ  1024  /* Second argument to listen() */
+
+
 /* Simplifies calls to bind(), connect(), and accept() */
 /* $begin sockaddrdef */
 typedef struct sockaddr SA;
 /* $end sockaddrdef */
+
+/* Simplfies char [MAXLINE] define process */
+/* $begin stringdef */
+typedef char string[MAXLINE];
+/* $end stringdef */
 
 /* Persistent state for the robust I/O (Rio) package */
 /* $begin rio_t */
@@ -54,11 +65,6 @@ typedef struct {
 /* External variables */
 extern int h_errno;    /* Defined by BIND for DNS errors */ 
 extern char **environ; /* Defined by libc */
-
-/* Misc constants */
-#define	MAXLINE	 8192  /* Max text line length */
-#define MAXBUF   8192  /* Max I/O buffer size */
-#define LISTENQ  1024  /* Second argument to listen() */
 
 /* Our own error-handling functions */
 void unix_error(char *msg);

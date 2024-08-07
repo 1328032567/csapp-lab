@@ -1,8 +1,12 @@
 #include "csapp.h"
-#include "proxy.h"
+#include "sbuf.h"
+#include "cache.h"
 
 /* Define shared buffer for connected descriptors*/
-sbuf_t sbuf;                
+sbuf_t sbuf;
+
+/* Define web proxy cache */
+cache_t cache;
 
 /* You won't lose style points for including this long line in your code */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:10.0.3) Gecko/20120305 Firefox/10.0.3\r\n";
@@ -24,7 +28,10 @@ int main(int argc, char **argv)
     }
 
     listenfd = Open_listenfd(argv[1]);
+    /* Initialize buffer and cache */
     sbuf_init(&sbuf, SBUFSIZE);
+    cache_init(cache);
+
     for(int i = 0;i < NTHREADS; i++)   /* Create worker threads */
         Pthread_create(&tid, NULL, thread, NULL);
 
@@ -54,25 +61,51 @@ void *thread(void *vargp)
  */
 void web_proxy(int connfd)
 {
-    string line;
+    string buf;
     string http_request;
     URL url;
     int serverfd;
     rio_t rio;
+    int index;
     
     getRequest(connfd, &url, &http_request);
 
-    if((serverfd = Open_clientfd(url.host, url.port)) < 0)
-        fprintf(stderr, "Web Proxy connected to server failed.\n");
-    
-    Rio_readinitb(&rio, serverfd);
-    Rio_writen(serverfd, http_request, strlen(http_request));
-    
-    int n;
-    while ((n = Rio_readnb(&rio, line, MAXLINE)) > 0)
-        Rio_writen(connfd, line, n);
-    
-    Close(serverfd);
+    /* Search for the object */
+    cache_search(cache, &index, url);
+    if(index != -1){   /* Cache Hit */
+        /* Send cache to client */
+        Rio_writen(connfd, cache[index].buf, cache[index].size);
+        return;
+    }
+    else{               /* Cache Miss */
+        /* Open server socket */
+        if((serverfd = Open_clientfd(url.host, url.port)) < 0)
+            fprintf(stderr, "Web Proxy connected to server failed.\n");
+        /* Find a free cache block */
+        cache_find(cache, &index);
+
+        /* Send http request to server */
+        Rio_readinitb(&rio, serverfd);
+        Rio_writen(serverfd, http_request, strlen(http_request));
+
+        char *content = Malloc(MAX_OBJECT_SIZE);/* Allocate heap size */
+        int size = 0;
+        int n;
+        /* Clear content field */
+        memset(content, 0, MAX_OBJECT_SIZE);
+        while ((n = Rio_readnb(&rio, buf, MAXLINE)) > 0){
+            Rio_writen(connfd, buf, n);
+            if(size < MAX_OBJECT_SIZE){
+                memcpy(content+size, buf, n);
+                size += n;
+            }
+        }
+        if(size < MAX_OBJECT_SIZE){
+            cache_insert(cache, index, content, &url, size);
+        }
+        Free(content);
+        Close(serverfd);
+    }
 }
 
 /*

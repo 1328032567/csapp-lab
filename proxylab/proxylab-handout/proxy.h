@@ -1,5 +1,4 @@
 #include "csapp.h"
-#include "sbuf.h"
 
 /* Define string type to simplify */
 typedef char string[MAXLINE];

@@ -1,0 +1,50 @@
+#####################################################################
+# CS:APP Lab
+# Lab Materials
+######################################################################
+
+************
+1. Overview
+************
+
+This repository is written by a Chinese bachelor. Each Lab was achieved at a high score.
+
+********
+2. Files
+********
+
+[.*]lab            Each directory includes high score answer of each lab.
+lab                Original hand-out materials of each lab.
+gitignore          Ignore useless file in the directory.
+README             This file
+
+*******************
+3. Building Each Lab
+*******************
+
+Step 1: Enter the hand-out directory of each lab.
+
+Step 2: Type "make clean; make" to build the each related lab file.
+
+Step 3: Try your best to get high score. Good Luck!
+
+******************
+4. Grading the Lab
+******************
+
+Autograding scripts are available for each lab. See grade/README in corresponding lab for details.
+
+These scripts would give a score for each version of code.
+
+Each lab has its own grading standard, try to read the release note of each lab.
+
+************
+5. Solutions
+************
+There are many outstanding solutions on the Network, you can reference from them. But do not copy,
+if you do so, won't learn anything from the lab.
+
+************
+6. Luck
+************
+Make your hands dirty, you will learn much from this journey. Good Luck!

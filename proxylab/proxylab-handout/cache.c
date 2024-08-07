@@ -107,6 +107,18 @@ void cache_insert(cache_t cp, int index, const char *buf,
 }
 
 /*
+ * cache_deinit - free block's buffer size by Free function.
+ */
+void cache_deinit(cache_t cp)
+{
+    for(int i = 0;i < MAX_BLK_NUM; i++){
+        /* Free buffer which is allocated by malloc */
+        enter_writer(&cp[i]);
+        Free(cp[i].buf);
+        exit_writer(&cp[i]);
+    }
+}
+/*
  * enter_reader - Enter reader's critical section.
  */
 void enter_reader(obj_t *obj)

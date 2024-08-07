@@ -8,8 +8,7 @@
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
-#define MAX_BLK_NUM    10 
-// #define MAX_BLK_NUM     (int)(MAX_CACHE_SIZE/MAX_OBJECT_SIZE)
+#define MAX_BLK_NUM     (int)(MAX_CACHE_SIZE/MAX_OBJECT_SIZE)
 
 /* Define cache object data structure */
 typedef struct{
@@ -33,6 +32,7 @@ void cache_insert(cache_t cp, int index, const char *buf,
                 const URL *url, const int size);
 void cache_find(cache_t cp, int *index);
 void cache_search(cache_t cp, int *index, const URL url);
+void cache_deinit(cache_t cp);
 
 
 void enter_reader(obj_t *obj);

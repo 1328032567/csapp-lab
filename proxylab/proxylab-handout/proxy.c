@@ -40,6 +40,9 @@ int main(int argc, char **argv)
         connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
         sbuf_insert(&sbuf, connfd); /* Insert connfd in buffer */
     }
+    /* Free malloc size */
+    sbuf_deinit(&sbuf);
+    cache_deinit(cache);
     return 0;
 }
 
@@ -88,9 +91,9 @@ void web_proxy(int connfd)
         Rio_readinitb(&rio, serverfd);
         Rio_writen(serverfd, http_request, strlen(http_request));
 
-        char *content = Malloc(MAX_OBJECT_SIZE);/* Allocate heap size */
-        int size = 0;
         int n;
+        int size = 0;
+        char *content = Malloc(MAX_OBJECT_SIZE);/* Allocate heap size */
         /* Clear content field */
         memset(content, 0, MAX_OBJECT_SIZE);
         while ((n = Rio_readnb(&rio, buf, MAXLINE)) > 0){
@@ -103,7 +106,9 @@ void web_proxy(int connfd)
         if(size < MAX_OBJECT_SIZE){
             cache_insert(cache, index, content, &url, size);
         }
+        /* Free content size */
         Free(content);
+        /* Close serverfd */
         Close(serverfd);
     }
 }

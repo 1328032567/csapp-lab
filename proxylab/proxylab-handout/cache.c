@@ -171,38 +171,3 @@ void exit_writer(obj_t *obj)
      **********************/
     V(&obj->w);
 }
-
-/* Global variables */
-int readcnt;    /* Initially = 0 */
-sem_t mutex, w; /* Both initially = 1 */
-
-void reader(void)
-{
-    while(1){
-        P(&mutex);
-        readcnt++;
-        if (readcnt == 1)  /* First in */
-            P(&w);
-        V(&mutex);
-
-        /* Crictical section */
-
-
-        P(&mutex);
-        readcnt--;
-        if (readcnt == 0)   /* Last one */
-            V(&w);
-        V(&mutex);
-    }
-}
-
-void writer(void)
-{
-    while(1){
-        P(&w);
-        
-        /* Critical section */
-
-        V(&w);
-    }
-}

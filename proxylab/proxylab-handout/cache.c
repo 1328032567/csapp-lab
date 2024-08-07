@@ -1,20 +1,21 @@
 #include "csapp.h"
-#include <cstdlib>
 #include "cache.h"
 
 /*
  * cache_init - initialize cache structure.
  */
-void cache_init(cache_t *cp)
+void cache_init(cache_t cp)
 {
     for(int i = 0;i < MAX_BLK_NUM; i++){
-        cp[i]->size = 0;    /* Initialize buffer size */
-        cp[i]->stamp = 0;   /* Initialize time stamp */
-        cp[i]->valid = 0;   /* Free block flag bit */
-        cp[i]->readcnt = 0; /* Clear reader number */
+        cp[i].size = 0;    /* Initialize buffer size */
+        cp[i].stamp = 0;   /* Initialize time stamp */
+        cp[i].valid = 0;   /* Free block flag bit */
+        cp[i].readcnt = 0; /* Clear reader number */
+        cp[i].buf = Malloc(MAX_OBJECT_SIZE);           /* Allocate buffer size */
+        memset(cp[i].buf, 0, MAX_OBJECT_SIZE);       /* Initialize buffer */
 
-        Sem_init(&cp[i]->mutex, 0, 1);  /* Initlially, mutex is 0 */
-        Sem_init(&cp[i]->w, 0, 1);      /* Initlially, only 1 writer can write */
+        Sem_init(&cp[i].mutex, 0, 1);  /* Initlially, mutex is 0 */
+        Sem_init(&cp[i].w, 0, 1);      /* Initlially, only 1 writer can write */
     }
 
 }
@@ -22,97 +23,87 @@ void cache_init(cache_t *cp)
 /*
  * cache_update - update each object's time stamp.
  */
-void cache_update(cache_t *cp)
+void cache_update(cache_t cp)
 {
     /* Modify each block's time stamp */
     for(int i = 0;i < MAX_BLK_NUM; i++){
-        enter_writer(cp[i]);
+        enter_writer(&cp[i]);
         /* Critical section */        
 
-        cp[i]->stamp++; 
+        cp[i].stamp++; 
 
-        exit_writer(cp[i]);
+        exit_writer(&cp[i]);
     }
 }
 
 /*
  * cache_find - find a free cache block.
  */
-void cache_find(cache_t *cp, obj_t *obj)
+void cache_find(cache_t cp, int *index)
 {
     int maxstamp = 0;
     /* Traverse cache block to find a free block */
     for(int i = 0;i < MAX_BLK_NUM; i++){
-        enter_reader(cp[i]);
-        if(cp[i]->valid == 0){  /* Valid free block */
-            obj = cp[i];
-            exit_reader(cp[i]);
+        enter_reader(&cp[i]);
+        if(cp[i].valid == 0){  /* Valid free block */
+            *index = i;
+            exit_reader(&cp[i]);
             break;
         }
         else{   /* No free block */
             /* LRU strategy */
-            if(cp[i]->stamp > maxstamp){
-                obj = cp[i];
-                maxstamp = cp[i]->stamp;
+            if(cp[i].stamp > maxstamp){
+                *index = i;
+                maxstamp = cp[i].stamp;
             }
         }
-        exit_reader(cp[i]);
+        exit_reader(&cp[i]);
     }
     return ;
 }
 
 /*
- * cache_insert - insert a new object into cache block.
- */
-void cache_insert(cache_t *cp, const obj_t obj)
-{
-    obj_t* free_obj;
-    /* Find a free block to insert */
-    cache_find(cp, free_obj);
-
-    /* Override free block */
-    enter_writer(free_obj);
-    memcpy(free_obj, &obj, sizeof(obj_t));
-    exit_writer(free_obj);
-}
-
-/*
  * cache_search - give url and search the cache to hit the block.
  */
-void cache_search(cache_t *cp, obj_t *obj, const URL url)
+void cache_search(cache_t cp, int *index, const URL url)
 {
     for(int i = 0;i < MAX_BLK_NUM; i++){
-        enter_reader(cp[i]);
-        if((CMPURL(cp[i]->url, url) == 0) && (cp[i]->valid == 1)){   /* hit the cache */
-            obj = cp[i];
-            exit_reader(cp[i]);
+        enter_reader(&cp[i]);
+        if((CMPURL(cp[i].url, url) == 0) && (cp[i].valid == 1)){   /* hit the cache */
+            *index = i;
+            exit_reader(&cp[i]);
 
-            enter_writer(cp[i]);
-            cp[i]->stamp = 0;
-            exit_writer(cp[i]);
+            enter_writer(&cp[i]);
+            cp[i].stamp = 0;
+            exit_writer(&cp[i]);
 
-            break;
+            return;
         }
-        exit_reader(cp[i]);
+        exit_reader(&cp[i]);
     }
+    /* Cache Miss */
+    *index = -1;
     cache_update(cp);
     return;
 }
 
 /*
- * obj_init - initailize the object block.
+ * cache_insert - insert object block by index.
  */
-void obj_init(obj_t *obj, const char *buf, 
+void cache_insert(cache_t cp, int index, const char *buf, 
                 const URL *url, const int size)
 {
-    enter_writer(obj);
+    enter_writer(&cp[index]);
     /* Copy data to block */
-    memcpy(obj->buf, buf, MAX_OBJECT_SIZE);
-    memcpy(&obj->url, url, sizeof(URL));
-    obj->size = size;   /* Set buffer size */
-    obj->stamp = 0;     /* Reset time stamp */
-    obj->valid = 1;     /* Set free valid bit */
-    exit_writer(obj);
+    memcpy(cp[index].buf, buf, MAX_OBJECT_SIZE);
+    memcpy(&cp[index].url, url, sizeof(URL));
+    cp[index].size = size;   /* Set buffer size */
+    cp[index].stamp = 0;     /* Reset time stamp */
+    cp[index].valid = 1;     /* Set free valid bit */
+    exit_writer(&cp[index]);
+
+    /* Update block time stamp */
+    cache_update(cp);
 }
 
 /*

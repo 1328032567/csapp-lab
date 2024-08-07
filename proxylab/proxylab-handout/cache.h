@@ -8,10 +8,12 @@
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
-#define MAX_BLK_NUM     (int)(MAX_CACHE_SIZE/MAX_OBJECT_SIZE)
+#define MAX_BLK_NUM    10 
+// #define MAX_BLK_NUM     (int)(MAX_CACHE_SIZE/MAX_OBJECT_SIZE)
+
 /* Define cache object data structure */
 typedef struct{
-    char buf[MAX_OBJECT_SIZE];  /* Cache block array */
+    char *buf;                  /* Cache block array */
     URL url;                    /* Object identifier */
     int size;                   /* Object size */
     int stamp;                  /* Time stamp */
@@ -25,15 +27,13 @@ typedef struct{
 /* Define cache structure */
 typedef obj_t cache_t[MAX_BLK_NUM]; /* cache own MAX_BLK_NUM blocks */
 
-void cache_init(cache_t *cp);
-void cache_update(cache_t *cp);
-void cache_find(cache_t *cp, obj_t *obj);
-void cache_insert(cache_t *cp, const obj_t obj);
-// void cache_remove(cache_t *cp);
-void cache_search(cache_t *cp, obj_t *obj, const URL url);
-
-void obj_init(obj_t *obj, const char *buf, 
+void cache_init(cache_t cp);
+void cache_update(cache_t cp);
+void cache_insert(cache_t cp, int index, const char *buf, 
                 const URL *url, const int size);
+void cache_find(cache_t cp, int *index);
+void cache_search(cache_t cp, int *index, const URL url);
+
 
 void enter_reader(obj_t *obj);
 void exit_reader(obj_t *obj);
